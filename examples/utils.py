@@ -7,9 +7,44 @@ import gymnasium as gym
 
 from acoustorl import MADDPG
 from acousticlevitationgym.utils import general_utils
-    
 
-def interpolate_positions(coords, delta_time_original=0.2, delta_time_new=0.02):
+
+def save_path(path, save_dir, n_particles, delta_time, num, file_name='path'):
+    paths_transpose = np.transpose(path, (1, 0, 2))
+
+    save_path = os.path.join(save_dir, f'{file_name}{str(num)}.csv')
+    file_instance = open(save_path, "w", encoding="UTF8", newline='')
+    csv_writer = csv.writer(file_instance)
+
+    for i in range(n_particles):
+        header = ['Agent ID', i]
+        row_1 = ['Number of', len(paths_transpose[i])]
+
+        csv_writer.writerow(header)
+        csv_writer.writerow(row_1)
+
+        rows = []
+        path_time = 0.0
+        for j in range(len(paths_transpose[i])):
+            rows = [j, path_time, paths_transpose[i][j][0], paths_transpose[i][j][1], paths_transpose[i][j][2]]
+            path_time += delta_time
+            csv_writer.writerow(rows)
+
+    file_instance.close()  
+
+
+def read_csv_file(file_path):
+    data_list = []
+    with open(file_path, 'r', newline='', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            # 过滤掉空字符串
+            filtered_row = [item for item in row if item.strip()]
+            data_list.append(filtered_row)
+    return data_list
+
+
+def interpolate_positions(coords, delta_time_original=0.1, delta_time_new=32/10000):
     num_interpolations = int(delta_time_original / delta_time_new) - 1
     interpolated_coords = []
 
@@ -28,7 +63,7 @@ def interpolate_positions(coords, delta_time_original=0.2, delta_time_new=0.02):
     # Convert list to numpy array
     interpolated_coords = np.array(interpolated_coords)
     
-    # Reshape to match the required format (2 * (N * 10) / 10, N, 3)
+    # Reshape to match the required format (2 * (N * 10) / 10, n_particles, 3)
     interpolated_coords = interpolated_coords.transpose(1, 0, 2).reshape(-1, coords.shape[1], 3)
     
     return interpolated_coords
@@ -71,9 +106,126 @@ def calculate_3d_distances(coordinate_list):
     return distances
 
 
+def generate_global_paths_0(env, agent, n_particles, max_timesteps):
+    paths = [[] for _ in range(n_particles)]
+    collision_happen = False
+        
+    state, _ = env.reset()
+    terminated, truncated = False, False
+
+    # 更新 paths
+    for i in range(n_particles):
+        paths[i].append(state[i, :3])
+
+    #print('The target positions are:')
+    final_points = np.zeros((n_particles, 3))
+    final_points = state[:, :3] + state[:, 6:9]
+
+    for _ in range(max_timesteps):
+        action = agent.take_action(state, explore=False)  
+
+        next_state, _, terminated, truncated, _ = env.step(action)
+                
+        state = next_state
+        for i in range(n_particles):
+            paths[i].append(state[i, :3])
+
+        if terminated or (truncated == 1):
+            for i in range(n_particles):
+                paths[i].append(final_points[i])
+            break
+        elif truncated == 2:
+            collision_happen = True
+
+    paths_array = np.array(paths)
+    paths_transpose = np.transpose(paths_array, (1, 0, 2))
+    #print(f'The key points shape: {paths_transpose.shape} \n')
+
+    return paths_transpose, truncated, collision_happen
+
+
 def generate_global_paths(env, agent, n_particles, max_timesteps):
     paths = [[] for _ in range(n_particles)]
         
+    state, _ = env.reset()
+    terminated, truncated = False, False
+
+    # 更新 paths
+    for i in range(n_particles):
+        paths[i].append(state[i, :3])
+
+    #print('The target positions are:')
+    final_points = np.zeros((n_particles, 3))
+    final_points = state[:, :3] + state[:, 6:9]
+
+    for _ in range(max_timesteps):
+        action = agent.take_action(state, explore=False)  
+
+        next_state, _, terminated, truncated, _ = env.step(action)
+                
+        state = next_state
+        for i in range(n_particles):
+            paths[i].append(state[i, :3])
+
+        if terminated or truncated:
+            for i in range(n_particles):
+                paths[i].append(final_points[i])
+            break
+
+    paths_array = np.array(paths)
+    paths_transpose = np.transpose(paths_array, (1, 0, 2))
+    #print(f'The key points shape: {paths_transpose.shape} \n')
+
+    return paths_transpose, truncated
+
+
+def generate_global_paths_combination(env, agent1, agent2, n_particles, max_timesteps):
+    # agent 1: target arriving
+    # agent 2: gorkov minimization
+    max_timesteps *= 2
+
+    paths = [[] for _ in range(n_particles)]
+        
+    state, _ = env.reset()
+    terminated, truncated = False, False
+
+    # 更新 paths
+    for i in range(n_particles):
+        paths[i].append(state[i, :3])
+
+    #print('The target positions are:')
+    final_points = np.zeros((n_particles, 3))
+    final_points = state[:, :3] + state[:, 6:9]
+
+    for i in range(max_timesteps):
+        if i < 5 or i >= 10:
+            action = agent1.take_action(state, explore=False)  
+        else:
+            print('Gorkov optimization!')
+            action = agent2.take_action(state, explore=False)  
+
+        next_state, _, terminated, truncated, _ = env.step(action)
+                
+        state = next_state
+        for i in range(n_particles):
+            paths[i].append(state[i, :3])
+
+        if terminated or truncated:
+            for i in range(n_particles):
+                paths[i].append(final_points[i])
+            break
+
+    paths_array = np.array(paths)
+    paths_transpose = np.transpose(paths_array, (1, 0, 2))
+    #print(f'The key points shape: {paths_transpose.shape} \n')
+
+    return paths_transpose, truncated
+
+
+def generate_global_paths_input(env, agent, n_particles, max_timesteps, start_points, target_points):
+    paths = [[] for _ in range(n_particles)]
+        
+    env.input_start_end_points(start_points, target_points)
     state, _ = env.reset()
     terminated, truncated = False, False
 
