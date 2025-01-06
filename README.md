@@ -1,6 +1,6 @@
-# AcoustoLevitationGym
+# AcoustoLevitationEnvironment
 
-A reinforcement learning environment for training particle movement policies.
+A reinforcement learning environment for acoustic levitation multi-particle path planning.
 
 ## Installation
 
@@ -9,7 +9,7 @@ A reinforcement learning environment for training particle movement policies.
 3. Active a Python virtual environment
 4. Open the file:
 ~~~python
-cd PATH\AcousticLevitationGym
+cd PATH\AcousticLevitationEnvironment
 ~~~
 
 5. Input:
