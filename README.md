@@ -1,4 +1,4 @@
-# AcoustoLevitationEnvironment
+# AcousticLevitationEnvironment
 
 A reinforcement learning environment for acoustic levitation multi-particle path planning.
 
