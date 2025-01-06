@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="AcousticLevitationGym",
+    name="AcousticLevitationEnvironment",
     version="0.1.0",
     author="Pengyuan Wei",
     author_email="ucabpw3@ucl.ac.uk",
