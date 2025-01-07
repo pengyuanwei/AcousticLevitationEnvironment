@@ -174,10 +174,8 @@ class GlobalPlannerAPF(gym.Env):
                 self.collision[i] = 1.0
                 
             for j in range(i+1, self.n_particles):
-                dist = math.sqrt((x - self.particles[j].x)**2/0.014**2 + 
-                                 (y - self.particles[j].y)**2/0.014**2 + 
-                                 (z - self.particles[j].z)**2/0.03**2)
-                if dist <= 1.0:
+                dist_square = (x - self.particles[j].x)**2/0.014**2 + (y - self.particles[j].y)**2/0.014**2 + (z - self.particles[j].z)**2/0.03**2
+                if dist_square <= 1.0:
                     self.collision[i] = 1.0
                     self.collision[j] = 1.0
 
@@ -209,6 +207,7 @@ class GlobalPlannerAPF(gym.Env):
             return True  
 
         if self.time_step >= self.max_timesteps:
+            print('Out of time!/n')
             return True       
         
         return False     

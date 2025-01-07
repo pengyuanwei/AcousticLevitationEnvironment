@@ -144,7 +144,7 @@ def generate_global_paths_0(env, agent, n_particles, max_timesteps):
     return paths_transpose, truncated, collision_happen
 
 
-def generate_global_paths(env, agent, n_particles, max_timesteps):
+def generate_global_paths(env, agent, n_particles: int, max_timesteps: int):
     paths = [[] for _ in range(n_particles)]
         
     state, _ = env.reset()
@@ -155,7 +155,6 @@ def generate_global_paths(env, agent, n_particles, max_timesteps):
         paths[i].append(state[i, :3])
 
     #print('The target positions are:')
-    final_points = np.zeros((n_particles, 3))
     final_points = state[:, :3] + state[:, 6:9]
 
     for _ in range(max_timesteps):
@@ -179,7 +178,7 @@ def generate_global_paths(env, agent, n_particles, max_timesteps):
     return paths_transpose, truncated
 
 
-def generate_global_paths_combination(env, agent1, agent2, n_particles, max_timesteps):
+def generate_global_paths_combination(env, agent1, agent2, n_particles: int, max_timesteps: int):
     # agent 1: target arriving
     # agent 2: gorkov minimization
     max_timesteps *= 2
@@ -194,7 +193,6 @@ def generate_global_paths_combination(env, agent1, agent2, n_particles, max_time
         paths[i].append(state[i, :3])
 
     #print('The target positions are:')
-    final_points = np.zeros((n_particles, 3))
     final_points = state[:, :3] + state[:, 6:9]
 
     for i in range(max_timesteps):
@@ -273,7 +271,6 @@ def generate_replan_paths(env, agent, n_particles, max_timesteps, points):
         paths[i].append(state[i, :3])
 
     #print('The target positions are:')
-    final_points = np.zeros((n_particles, 3))
     final_points = state[:, :3] + state[:, 6:9]
 
     for _ in range(max_timesteps):
