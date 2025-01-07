@@ -5,7 +5,7 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import acousticlevitationgym
 
-from acoustic_levitation_environment_v2.utils import general_utils
+from acousticlevitationenvironment.utils import general_utils
 from acoustorl import MADDPG
 from acoustorl.common.general_utils import ReplayBuffer_MADDPG
 

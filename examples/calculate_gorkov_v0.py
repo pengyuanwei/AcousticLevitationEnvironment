@@ -5,7 +5,7 @@ import torch
 import os
 import matplotlib.pyplot as plt
 
-from acoustic_levitation_gym.wrappers import Gorkov_new
+from acousticlevitationenvironment.utils import Gorkov_new
 
 # Modified based on the DataTransfer_v1.py
 # Calculate Gorkov for S2M2 generated trajectories: find the min(|G|) at each timestep.

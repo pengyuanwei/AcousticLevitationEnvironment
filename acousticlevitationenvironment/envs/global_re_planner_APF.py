@@ -5,8 +5,8 @@ import gymnasium as gym
 
 from typing import Optional, Tuple, Any, List, Dict
 
-from acoustic_levitation_environment_v2.envs import GlobalPlannerAPF
-from acoustic_levitation_environment_v2.particles import particle_slim, target_slim
+from acousticlevitationenvironment.envs import GlobalPlannerAPF
+from acousticlevitationenvironment.particles import particle_slim, target_slim
 
 
 class GlobalRePlannerAPF(GlobalPlannerAPF):

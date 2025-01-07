@@ -6,7 +6,7 @@ import numpy as np
 import gymnasium as gym
 
 from acoustorl import MADDPG
-from acousticlevitationgym.utils import general_utils
+from acousticlevitationenvironment.utils import general_utils
 
 
 def save_path(path, save_dir, n_particles, delta_time, num, file_name='path'):

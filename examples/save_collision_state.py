@@ -8,7 +8,7 @@ import time
 
 from utils import *
 from acoustorl import MADDPG
-from acoustic_levitation_environment_v2.particles import particle_slim, target_slim
+from acousticlevitationenvironment.particles import particle_slim, target_slim
 
 
 # Change from divide_global_path_8.py

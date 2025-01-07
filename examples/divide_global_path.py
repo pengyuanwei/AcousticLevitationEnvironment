@@ -7,7 +7,7 @@ import gymnasium as gym
 
 from utils import *
 from acoustorl import MADDPG
-from acousticlevitationgym.utils import general_utils
+from acousticlevitationenvironment.utils import general_utils
 
 
 if __name__ == "__main__":

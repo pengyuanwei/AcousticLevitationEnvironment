@@ -5,8 +5,8 @@ import gymnasium as gym
 
 from typing import Optional, Tuple, Any, List, Dict
 
-from acoustic_levitation_environment_v2.particles import particle_slim, target_slim
-from acoustic_levitation_environment_v2.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing, APF_v3
+from acousticlevitationenvironment.particles import particle_slim, target_slim
+from acousticlevitationenvironment.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing, check_and_correct_positions
 
 
 class GlobalPlannerAPF(gym.Env):
@@ -146,7 +146,7 @@ class GlobalPlannerAPF(gym.Env):
             for i, particle in enumerate(self.particles):
                 positions[i] = [particle.x, particle.y, particle.z]
 
-            new_positions, satisfied = APF_v3.check_and_correct_positions(positions)
+            new_positions, satisfied = check_and_correct_positions(positions)
 
             if satisfied:
                 self.collision.fill(0.0)
