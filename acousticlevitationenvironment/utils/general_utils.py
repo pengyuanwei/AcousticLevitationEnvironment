@@ -1,4 +1,3 @@
-from tqdm import tqdm
 import numpy as np
 import torch
 import collections
@@ -122,89 +121,6 @@ def moving_average(a, window_size):
     return np.concatenate((begin, middle, end))
 
 
-def train_on_policy_agent(env, agent, num_episodes):
-    return_list = []
-    for i in range(10):
-        with tqdm(total=int(num_episodes/10), desc='Iteration %d' % i) as pbar:
-            for i_episode in range(int(num_episodes/10)):
-                episode_return = 0
-                transition_dict = {'states': [], 'actions': [], 'next_states': [], 'rewards': [], 'dones': []}
-                state = env.reset()
-                done = False
-                while not done:
-                    action = agent.take_action(state)
-                    next_state, reward, done, _ = env.step(action)
-                    transition_dict['states'].append(state)
-                    transition_dict['actions'].append(action)
-                    transition_dict['next_states'].append(next_state)
-                    transition_dict['rewards'].append(reward)
-                    transition_dict['dones'].append(done)
-                    state = next_state
-                    episode_return += reward
-                return_list.append(episode_return)
-                agent.update(transition_dict)
-                if (i_episode+1) % 10 == 0:
-                    pbar.set_postfix({'episode': '%d' % (num_episodes/10 * i + i_episode+1), 'return': '%.3f' % np.mean(return_list[-10:])})
-                pbar.update(1)
-            agent.save(i)
-    return return_list
-
-
-# DDPG
-def train_off_policy_agent_DDPG(env, agent, num_episodes, replay_buffer, minimal_size, batch_size):
-    return_list = []
-    for i in range(20):
-        with tqdm(total=int(num_episodes/20), desc='Iter %d' % i) as pbar:
-            for i_episode in range(int(num_episodes/20)):
-                episode_return = 0
-                state, info = env.reset()
-                done = False
-                while not done:
-                    action = agent.take_action(state)
-                    next_state, reward, done, truncated, info = env.step(action)
-                    replay_buffer.add(state, action, reward, next_state, done)
-                    state = next_state
-                    episode_return += reward
-                    if replay_buffer.size() > minimal_size:
-                        b_s, b_a, b_r, b_ns, b_d = replay_buffer.sample(batch_size)
-                        transition_dict = {'states': b_s, 'actions': b_a, 'next_states': b_ns, 'rewards': b_r, 'dones': b_d}
-                        agent.update(transition_dict)
-                return_list.append(episode_return)
-                if (i_episode+1) % 10 == 0:
-                    pbar.set_postfix({'episode': '%d' % (num_episodes/20 * i + i_episode+1), 'return': '%.3f' % np.mean(return_list[-10:])})
-                pbar.update(1)
-            agent.save(i)
-            evaluation(env, agent, i)
-    return return_list
-
-
-# TD3
-def train_off_policy_agent(env, agent, num_episodes, replay_buffer, minimal_size, batch_size):
-    return_list = []
-    for i in range(20):
-        with tqdm(total=int(num_episodes/20), desc='Iter %d' % i) as pbar:
-            for i_episode in range(int(num_episodes/20)):
-                episode_return = 0
-                state, info = env.reset()
-                #print(state)
-                done = False
-                while not done:
-                    action = agent.take_action(state)
-                    next_state, reward, done, truncated, info = env.step(action)
-                    replay_buffer.add(state, action, next_state, reward, done)
-                    state = next_state
-                    episode_return += reward
-                    if replay_buffer.size > minimal_size:
-                        agent.train(replay_buffer)
-                return_list.append(episode_return)
-                if (i_episode+1) % 10 == 0:
-                    pbar.set_postfix({'episode': '%d' % (num_episodes/20 * i + i_episode+1), 'return': '%.3f' % np.mean(return_list[-10:])})
-                pbar.update(1)
-            agent.save(i)
-            #eval_agent(eval_env, agent)
-    return return_list
-
-
 # TD3 experiment
 def train_off_policy_agent_experiment(env, agent, replay_buffer, minimal_size, total_timesteps, env_name, max_timesteps, i):
     num_evaluate = 10
@@ -287,84 +203,6 @@ def DQD3_train_off_policy_agent_experiment(env, agent, replay_buffer, minimal_si
     # print(len(return_list))
     agent.save_experiment(env_name, i)
     return return_list, std_list
-
-
-# Independent TD3, MultiParticle_v5
-def train_off_policy_agent_v1(env, agent, num_episodes, replay_buffer, minimal_size, batch_size):
-    return_list = []
-    for i in range(20):
-        with tqdm(total=int(num_episodes/20), desc='Iter %d' % i) as pbar:
-            for i_episode in range(int(num_episodes/20)):
-                episode_return = 0
-                state, info = env.reset()
-                #print(state)
-                done = False
-                while not done:
-                    action0 = agent.take_action(state[0])
-                    action1 = agent.take_action(state[1])
-                    action2 = agent.take_action(state[2])
-                    action3 = agent.take_action(state[3])
-
-                    next_state, reward, done, truncated, info = env.step([action0, action1, action2, action3])
-                    replay_buffer.add(state[0], action0, next_state[0], reward[0], done)
-                    replay_buffer.add(state[1], action1, next_state[1], reward[1], done)
-                    replay_buffer.add(state[2], action2, next_state[2], reward[2], done)
-                    replay_buffer.add(state[3], action3, next_state[3], reward[3], done)
-
-                    state = next_state
-                    episode_return += sum(reward)
-                    if replay_buffer.size > minimal_size:
-                        agent.train(replay_buffer)
-                return_list.append(episode_return)
-                if (i_episode+1) % 10 == 0:
-                    pbar.set_postfix({'episode': '%d' % (num_episodes/20 * i + i_episode+1), 'return': '%.3f' % np.mean(return_list[-10:])})
-                pbar.update(1)
-            agent.save(i)
-            #eval_agent(eval_env, agent)
-    return return_list
-
-
-# Independent TD3, MultiParticle_v1
-def train_off_policy_agent_v3(env, agent, num_episodes, replay_buffer, minimal_size, batch_size, save_dir):
-    return_list = []
-    for i in range(20):
-        with tqdm(total=int(num_episodes/20), desc='Iter %d' % i) as pbar:
-            for i_episode in range(int(num_episodes/20)):
-                episode_return = 0
-                state, info = env.reset()
-                #print(state)
-                done = False
-                while not done:
-                    action0 = agent.take_action(state[0])
-                    action1 = agent.take_action(state[1])
-                    action2 = agent.take_action(state[2])
-                    action3 = agent.take_action(state[3])
-                    action4 = agent.take_action(state[4])
-                    action5 = agent.take_action(state[5])
-                    action6 = agent.take_action(state[6])
-                    action7 = agent.take_action(state[7])
-
-                    next_state, reward, done, truncated, info = env.step([action0, action1, action2, action3, action4, action5, action6, action7])
-                    replay_buffer.add(state[0], action0, next_state[0], reward[0], done)
-                    replay_buffer.add(state[1], action1, next_state[1], reward[1], done)
-                    replay_buffer.add(state[2], action2, next_state[2], reward[2], done)
-                    replay_buffer.add(state[3], action3, next_state[3], reward[3], done)
-                    replay_buffer.add(state[4], action4, next_state[4], reward[4], done)
-                    replay_buffer.add(state[5], action5, next_state[5], reward[5], done)
-                    replay_buffer.add(state[6], action6, next_state[6], reward[6], done)
-                    replay_buffer.add(state[7], action7, next_state[7], reward[7], done)
-
-                    state = next_state
-                    episode_return += sum(reward)
-                    if replay_buffer.size > minimal_size:
-                        agent.train(replay_buffer, batch_size)
-                return_list.append(episode_return)
-                if (i_episode+1) % 10 == 0:
-                    pbar.set_postfix({'episode': '%d' % (num_episodes/20 * i + i_episode+1), 'return': '%.3f' % np.mean(return_list[-10:])})
-                pbar.update(1)
-            agent.save(i, save_dir)
-            #eval_agent(eval_env, agent)
-    return return_list
 
 
 def compute_advantage(gamma, lmbda, td_delta):

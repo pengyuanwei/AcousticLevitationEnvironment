@@ -17,19 +17,19 @@ from acousticlevitationenvironment.particles import particle_slim, target_slim
 if __name__ == "__main__":
 
     n_particles = 6
-    global_model_dir_1 = './experiments/experiment_202'
-    global_model_dir_2 = './experiments/experiment_203'
-    global_model_dir_3 = './experiments/experiment_204'
-    global_model_dir_4 = './experiments/experiment_205'
+    global_model_dir_1 = './experiments/experiment_89'
+    global_model_dir_2 = './experiments/experiment_88'
+    global_model_dir_3 = './experiments/experiment_102'
+    global_model_dir_4 = './experiments/experiment_103'
     best_model_number_1 = 1000
     best_model_number_2 = 1000
 
-    env_name_1 = "acoustic_levitation_environment_v2/GlobalPlannerAPF-v0"
+    env_name_1 = "acousticlevitationenvironment/GlobalPlannerAPF-v0"
     delta_time_1 = 1.0/10
     max_timesteps_1 = 20
     global_env = gym.make(env_name_1, n_particles=n_particles, delta_time=delta_time_1, max_timesteps=max_timesteps_1)
 
-    env_name_2 = "acoustic_levitation_environment_v2/GlobalRePlannerAPF-v0"
+    env_name_2 = "acousticlevitationenvironment/GlobalRePlannerAPF-v0"
     delta_time_2 = 1.0/10
     max_timesteps_2 = 20
     replan_env = gym.make(env_name_2, n_particles=n_particles, delta_time=delta_time_2, max_timesteps=max_timesteps_2)
