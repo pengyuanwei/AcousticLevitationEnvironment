@@ -8,7 +8,7 @@ import time
 
 from utils import *
 from acoustorl import MADDPG
-from acoustic_levitation_environment_v2.particles import particle_slim, target_slim
+from acousticlevitationenvironment.particles import particle_slim, target_slim
 
 
 # Change from divide_global_path_7.py
@@ -17,10 +17,10 @@ from acoustic_levitation_environment_v2.particles import particle_slim, target_s
 if __name__ == "__main__":
 
     n_particles = 6
-    global_model_dir_1 = '/home/william/Projects/acoustic_levitation_environment_v2/examples/experiments/experiment_202'
-    global_model_dir_2 = '/home/william/Projects/acoustic_levitation_environment_v2/examples/experiments/experiment_203'
-    global_model_dir_3 = '/home/william/Projects/acoustic_levitation_environment_v2/examples/experiments/experiment_204'
-    global_model_dir_4 = '/home/william/Projects/acoustic_levitation_environment_v2/examples/experiments/experiment_205'
+    global_model_dir_1 = './experiments/experiment_202'
+    global_model_dir_2 = './experiments/experiment_203'
+    global_model_dir_3 = './experiments/experiment_204'
+    global_model_dir_4 = './experiments/experiment_205'
     best_model_number_1 = 1000
     best_model_number_2 = 1000
 
