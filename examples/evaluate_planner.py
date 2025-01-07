@@ -16,11 +16,11 @@ from acousticlevitationenvironment.particles import particle_slim, target_slim
 
 if __name__ == "__main__":
 
-    n_particles = 6
-    global_model_dir_1 = './experiments/experiment_89'
-    global_model_dir_2 = './experiments/experiment_88'
-    global_model_dir_3 = './experiments/experiment_102'
-    global_model_dir_4 = './experiments/experiment_103'
+    n_particles = 4
+    global_model_dir_1 = './experiments/experiment_100'
+    global_model_dir_2 = './experiments/experiment_101'
+    global_model_dir_3 = './experiments/experiment_104'
+    global_model_dir_4 = './experiments/experiment_105'
     best_model_number_1 = 1000
     best_model_number_2 = 1000
 
