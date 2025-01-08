@@ -8,30 +8,28 @@ import os
 from utils import *
 from calculate_gorkov_utils import *
 from top_bottom_setup import top_bottom_setup
-import matplotlib.pyplot as plt
 from scipy.stats import norm
-from scipy.spatial.distance import cdist
-import timeit
+import matplotlib.pyplot as plt
 
 
-# Modified based on the trajectory_optimization_7.py
-# Add time adjustment
+# Modified based on the trajectory_optimization_3.py: modularity for better readability
+# Do random search to find better Gorkov points for finded paths(keypoints)
+# Transform the time series into integer multiples of 32/1000s
 
 
 if __name__ == '__main__':
-    n_particles = 10
-    global_model_dir_1 = './experiments/experiment_85'
-    model_name = '85_84'
+    n_particles = 6
+    global_model_dir_1 = './experiments/experiment_89'
+    model_name = '89_88'
     num_file = 50
-    file_name = 'optimised_5_data' 
+    file_name = 'optimised_data'
 
     levitator = top_bottom_setup(n_particles)
 
     computation_time = []
     for n in range(num_file):
-        start_time = time.time()  # 记录当前循环的开始时间
-
         print(f'-----------------------The paths {n}-----------------------')
+        start_time = time.time()  # 记录当前循环的开始时间
         include_NaN = False
 
         csv_file = os.path.join(global_model_dir_1, model_name, f'path{str(n)}.csv')
@@ -95,7 +93,7 @@ if __name__ == '__main__':
         split_data_numpy[:, :, 1] = delta_time 
 
 
-        # Step 1: 使用随机搜索来优化速度变化以及Gorkov
+        # 使用随机搜索来优化最弱Gorkov的timesteps
         for m in range(10):
             print(f'-----------------------The iteration {m}-----------------------')
             # Calculate the Gorkov
@@ -105,24 +103,23 @@ if __name__ == '__main__':
             # print初始Gorkov
             if m == 0:
                 print('Max Gorkov before random search:', max_gorkov)
-                print('The mean of max Gorkov before random search: \n', np.mean(max_gorkov))
             max_gorkov[0] = -1.0
             max_gorkov[-1] = -1.0
             max_gorkov_index = np.argmax(max_gorkov)
             print(max_gorkov_index)
             print(max_gorkov[max_gorkov_index])
 
-
-            # 对Gorkov最大的state进行随机搜索以优化声陷强度
-            # Generate 100 potential solutions for the worst state, and then sort them based on the Gorkov
-            solutions = np.transpose(create_constrained_points_4(
+            re_plan_segment = np.copy(split_data_numpy[:, max_gorkov_index-1:max_gorkov_index+2, 2:])
+            re_plan_segment = np.transpose(re_plan_segment, (1, 0, 2))
+            
+            # 对最弱key points生成100个潜在solutions，并排序
+            solutions = np.transpose(create_constrained_points_1(
                 n_particles, 
                 split_data_numpy[:, max_gorkov_index, 2:], 
                 split_data_numpy[:, max_gorkov_index-1, 2:], 
-                split_data_numpy[:, max_gorkov_index+1, 2:],
-                tan_coefficient = 2.415),   # 67.5-2.415, 75-3.732, 80-5.671
-                (1, 0, 2))  # (N, 100, 3)
-            
+                split_data_numpy[:, max_gorkov_index+1, 2:]), 
+                (1, 0, 2))
+            #print(solutions.shape)
 
             # 计算solutions的Gorkov
             solutions_gorkov = levitator.calculate_gorkov(solutions)
@@ -138,16 +135,13 @@ if __name__ == '__main__':
 
 
             # 依次取出solutions，先检查是否Gorkov更好，再检查是否满足距离约束
-            # The segment: the front state, the worst state, and the back state
-            re_plan_segment = np.copy(split_data_numpy[:, max_gorkov_index-1:max_gorkov_index+2, 2:])
-            re_plan_segment = np.transpose(re_plan_segment, (1, 0, 2))  # (3, N, 3)
             # 分别求出两个segment的最大位移，用于缩放时间
             original_max_displacement = max_displacement(re_plan_segment)
             for i in range(solutions.shape[1]):
                 # 如果solutions的Gorkov比原坐标更差，则break
                 if sorted_solutions_max_gorkov[i] > max_gorkov[max_gorkov_index]:
                     print('Break!')
-                    break                
+                    break
                 re_plan_segment[1:2, :, :] = np.transpose(solutions[:, sorted_indices[i]:sorted_indices[i]+1, :], (1, 0, 2))
 
                 for k in range(2):
@@ -177,7 +171,6 @@ if __name__ == '__main__':
         gorkov = levitator.calculate_gorkov(split_data_numpy[:, :, 2:])
         max_gorkov = np.max(gorkov, axis=1)
         print('Max Gorkov after random search:', max_gorkov)
-        print('The mean of max Gorkov after random search: \n', np.mean(max_gorkov))
 
 
         # 检查所有关键点是否在圆圈内，如果不在，对其进行优化
@@ -188,15 +181,17 @@ if __name__ == '__main__':
                 gorkov = levitator.calculate_gorkov(split_data_numpy[:, :, 2:])
                 max_gorkov = np.max(gorkov, axis=1)
 
+                re_plan_segment = np.copy(split_data_numpy[:, m-1:m+2, 2:])
+                re_plan_segment = np.transpose(re_plan_segment, (1, 0, 2))
                 
                 # 对最弱key points生成100个潜在solutions，并排序
-                solutions = np.transpose(create_constrained_points_4(
+                solutions = np.transpose(create_constrained_points_1(
                     n_particles, 
-                    split_data_numpy[:, max_gorkov_index, 2:], 
-                    split_data_numpy[:, max_gorkov_index-1, 2:], 
-                    split_data_numpy[:, max_gorkov_index+1, 2:],
-                    tan_coefficient = 2.415),   # 67.5-2.415, 75-3.732, 80-5.671
-                    (1, 0, 2))  # (N, 100, 3)
+                    split_data_numpy[:, m, 2:], 
+                    split_data_numpy[:, m-1, 2:], 
+                    split_data_numpy[:, m+1, 2:]), 
+                    (1, 0, 2))
+                #print(solutions.shape)
 
                 # 计算solutions的Gorkov
                 solutions_gorkov = levitator.calculate_gorkov(solutions)
@@ -212,8 +207,6 @@ if __name__ == '__main__':
 
 
                 # 依次取出solutions，先检查是否Gorkov更好，再检查是否满足距离约束
-                re_plan_segment = np.copy(split_data_numpy[:, m-1:m+2, 2:])
-                re_plan_segment = np.transpose(re_plan_segment, (1, 0, 2))
                 # 分别求出两个segment的最大位移，用于缩放时间                
                 original_max_displacement = max_displacement(re_plan_segment)
                 for i in range(solutions.shape[1]):
@@ -244,35 +237,44 @@ if __name__ == '__main__':
                         split_data_numpy[:, m+1, 1] *= time_zoom[1]
                         break
 
-
         # 将时间向上取整，变成0.0032的整数倍
         split_data_numpy[:, 1:, 1] = np.ceil(split_data_numpy[:, 1:, 1] / 0.0032) * 0.0032
 
 
-        # Calculate the Gorkov again
-        gorkov = levitator.calculate_gorkov(split_data_numpy[:, :, 2:])
-        max_gorkov = np.max(gorkov, axis=1)
-        print('Max Gorkov after trajectory smoothing:', max_gorkov)
-        print('The mean of max Gorkov after trajectory smoothing: \n', np.mean(max_gorkov))
+        end_time = time.time()  # 记录当前循环的结束时间
+        elapsed_time = end_time - start_time  # 计算当前循环的运行时间
+        computation_time.append(elapsed_time)
+
+    computation_time = np.array(computation_time)
+    time_mean = np.mean(computation_time)
+    time_std = np.std(computation_time)
+    print(f'The mean of computation time: {time_mean}')
+    print(f'The std of computation time: {time_std}')
 
 
-        # 保存修改后的轨迹
-        save_path = os.path.join(global_model_dir_1, model_name, f'{file_name}_{str(n)}.csv')
-        file_instance = open(save_path, "w", encoding="UTF8", newline='')
-        csv_writer = csv.writer(file_instance)
+        # # Calculate the Gorkov again
+        # gorkov = levitator.calculate_gorkov(split_data_numpy[:, :, 2:])
+        # max_gorkov = np.max(gorkov, axis=1)
+        # print('Max Gorkov after trajectory smoothing:', max_gorkov)
 
-        for i in range(n_particles):
-            header = ['Agent ID', i]
-            row_1 = ['Number of', split_data_numpy.shape[1]]
 
-            csv_writer.writerow(header)
-            csv_writer.writerow(row_1)
+        # # 保存修改后的轨迹
+        # save_path = os.path.join(global_model_dir_1, model_name, f'{file_name}_{str(n)}.csv')
+        # file_instance = open(save_path, "w", encoding="UTF8", newline='')
+        # csv_writer = csv.writer(file_instance)
 
-            rows = []
-            path_time = 0.0
-            for j in range(split_data_numpy.shape[1]):
-                path_time += split_data_numpy[i][j][1]
-                rows = [j, path_time, split_data_numpy[i][j][2], split_data_numpy[i][j][3], split_data_numpy[i][j][4]]
-                csv_writer.writerow(rows)
+        # for i in range(n_particles):
+        #     header = ['Agent ID', i]
+        #     row_1 = ['Number of', split_data_numpy.shape[1]]
 
-        file_instance.close()  
+        #     csv_writer.writerow(header)
+        #     csv_writer.writerow(row_1)
+
+        #     rows = []
+        #     path_time = 0.0
+        #     for j in range(split_data_numpy.shape[1]):
+        #         path_time += split_data_numpy[i][j][1]
+        #         rows = [j, path_time, split_data_numpy[i][j][2], split_data_numpy[i][j][3], split_data_numpy[i][j][4]]
+        #         csv_writer.writerow(rows)
+
+        # file_instance.close()  
