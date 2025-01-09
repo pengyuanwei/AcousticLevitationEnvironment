@@ -88,51 +88,6 @@ def process_paths(data_numpy, paths_length):
     return split_data_numpy
 
 
-def interpolate_positions(coords, delta_time_original=0.1, delta_time_new=32/10000):
-    num_interpolations = int(delta_time_original / delta_time_new) - 1
-    interpolated_coords = []
-
-    for i in range(coords.shape[1]):
-        start = coords[0, i]
-        end = coords[1, i]
-        
-        # Calculate step for each dimension
-        step = (end - start) / (num_interpolations + 1)
-        
-        # Generate interpolated positions
-        positions = [start + j * step for j in range(num_interpolations + 2)]
-        
-        interpolated_coords.append(positions)
-    
-    # Convert list to numpy array
-    interpolated_coords = np.array(interpolated_coords)
-    
-    # Reshape to match the required format (2 * (N * 10) / 10, n_particles, 3)
-    interpolated_coords = interpolated_coords.transpose(1, 0, 2).reshape(-1, coords.shape[1], 3)
-    
-    return interpolated_coords
-
-
-def safety_area(n_particles, coords):
-    collision = np.zeros(n_particles)
-    x_min, x_max, y_min, y_max, z_min, z_max = [-0.06, 0.06, -0.06, 0.06, -0.06+0.12, 0.06+0.12]
-
-    for i in range(n_particles):
-        x, y, z = [coords[i][0], coords[i][1], coords[i][2]]
-        if not (x_min < x < x_max and y_min < y < y_max and z_min < z < z_max):
-            collision[i] = 1.0
-            
-        for j in range(i+1, n_particles):
-            dist = math.sqrt((x - coords[j][0])**2/0.014**2 + 
-                                (y - coords[j][1])**2/0.014**2 + 
-                                (z - coords[j][2])**2/0.03**2)
-            if dist <= 1.0:
-                collision[i] = 1.0
-                collision[j] = 1.0
-
-    return collision
-
-
 def euclidean_distance_3d(point1, point2):
     return math.sqrt((point2[0] - point1[0])**2 + 
                      (point2[1] - point1[1])**2 + 

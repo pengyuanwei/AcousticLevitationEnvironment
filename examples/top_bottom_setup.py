@@ -117,7 +117,6 @@ class top_bottom_setup():
     
 
     def calculate_gorkov(self, key_points):
-
         transformed_coordinate = key_points.copy()
         transformed_coordinate[:, :, 2] -= 0.12
 
