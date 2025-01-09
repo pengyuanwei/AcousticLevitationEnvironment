@@ -12,26 +12,6 @@ from top_bottom_setup import top_bottom_setup
 # Transform the time series into integer multiples of 32/1000s
 
 
-def process_paths(csv_data, n_particles):
-    # 每个粒子的轨迹长度相同
-    max_length_int = csv_data[1][1] + 1
-
-    # split_data_numpy的形状为(n_particles, n_keypoints, 5)
-    # When axis=2: particle_id, time, x, y, z
-    split_data_numpy = np.zeros((n_particles, np.max(max_length_int), 5))
-
-    for j in range(len(split_data_numpy)):
-        split_data_numpy[j, :max_length_int[j]] = data_numpy[:max_length_int[j]]
-
-        if max_length_int[j] < np.max(max_length_int):
-            last_particle_position = data_numpy[max_length_int[j]-1]
-            split_data_numpy[j, -(np.max(max_length_int)-max_length_int[j]):] = last_particle_position
-
-        data_numpy = data_numpy[max_length_int[j]:]
-
-    return split_data_numpy
-
-
 if __name__ == '__main__':
     n_particles = 6
     global_model_dir_1 = './experiments/experiment_89'
@@ -50,14 +30,18 @@ if __name__ == '__main__':
         # csv_data是list，其中的元素是list，每个子list保存了每一行的数据
         csv_file = os.path.join(global_model_dir_1, model_name, f'path{str(n)}.csv')
         csv_data = read_csv_file(csv_file)
-        if csv_data == None:
+        if csv_data is None:
             continue
 
         data_numpy, include_NaN = read_paths(csv_data)
-        if include_NaN == True:
+        if include_NaN:
             continue
 
-        split_data_numpy = process_paths(csv_data, n_particles)
+        # 每个粒子的轨迹长度相同
+        paths_length = csv_data[1][1].astype(int) + 1
+        # split_data_numpy的形状为(n_particles, n_keypoints, 5)
+        # When axis=2: particle_id, time, x, y, z
+        split_data_numpy = data_numpy.reshape(-1, paths_length, 5)
 
 
         # print(split_data_numpy.shape)   
