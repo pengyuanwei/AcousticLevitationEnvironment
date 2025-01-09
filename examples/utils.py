@@ -44,6 +44,37 @@ def read_csv_file(file_path):
     return data_list
 
 
+def read_paths(csv_data):
+    """
+    读取等长路径并转换为浮点型数组，同时检测是否包含 NaN 值。
+
+    参数:
+        csv_data (list of list): 输入的 CSV 数据，每行应该包含 5 个值。
+    
+    返回:
+        tuple: 包含两部分 (numpy array of floats, bool indicating if NaN is present)
+    """
+    try:
+        # 转换为浮点数组，并过滤长度不是5的行
+        csv_data_float = [
+            [float(element) for element in row] 
+            for row in csv_data if len(row) == 5
+        ]
+        
+        # 转换为 numpy 数组
+        csv_array = np.array(csv_data_float)
+        
+        # 检查是否存在 NaN 值
+        if np.isnan(csv_array).any():
+            return np.array([]), True
+
+        return csv_array, False
+
+    except ValueError:
+        # 捕获不能转换为浮点数的异常
+        return np.array([]), True
+    
+
 def interpolate_positions(coords, delta_time_original=0.1, delta_time_new=32/10000):
     num_interpolations = int(delta_time_original / delta_time_new) - 1
     interpolated_coords = []

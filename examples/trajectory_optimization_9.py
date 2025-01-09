@@ -1,20 +1,35 @@
-import csv
-import numpy as np
-import math
-import torch
-import time
 import os
+import time
+import numpy as np
 
 from utils import *
 from calculate_gorkov_utils import *
 from top_bottom_setup import top_bottom_setup
-from scipy.stats import norm
-import matplotlib.pyplot as plt
 
 
 # Modified based on the trajectory_optimization_3.py: modularity for better readability
 # Do random search to find better Gorkov points for finded paths(keypoints)
 # Transform the time series into integer multiples of 32/1000s
+
+
+def process_paths(csv_data, n_particles):
+    # 每个粒子的轨迹长度相同
+    max_length_int = csv_data[1][1] + 1
+
+    # split_data_numpy的形状为(n_particles, n_keypoints, 5)
+    # When axis=2: particle_id, time, x, y, z
+    split_data_numpy = np.zeros((n_particles, np.max(max_length_int), 5))
+
+    for j in range(len(split_data_numpy)):
+        split_data_numpy[j, :max_length_int[j]] = data_numpy[:max_length_int[j]]
+
+        if max_length_int[j] < np.max(max_length_int):
+            last_particle_position = data_numpy[max_length_int[j]-1]
+            split_data_numpy[j, -(np.max(max_length_int)-max_length_int[j]):] = last_particle_position
+
+        data_numpy = data_numpy[max_length_int[j]:]
+
+    return split_data_numpy
 
 
 if __name__ == '__main__':
@@ -29,55 +44,20 @@ if __name__ == '__main__':
     computation_time = []
     for n in range(num_file):
         print(f'-----------------------The paths {n}-----------------------')
-        start_time = time.time()  # 记录当前循环的开始时间
-        include_NaN = False
+        # 记录当前循环的开始时间
+        start_time = time.time()  
 
+        # csv_data是list，其中的元素是list，每个子list保存了每一行的数据
         csv_file = os.path.join(global_model_dir_1, model_name, f'path{str(n)}.csv')
         csv_data = read_csv_file(csv_file)
         if csv_data == None:
             continue
 
-        max_length = np.zeros(n_particles)
-        which_particle = 0
-
-        csv_data_float = []
-        for j in range(len(csv_data)):
-            sub_data_list = []
-            if csv_data[j] and len(csv_data[j]) == 5:
-                # 检测是否为NaN值
-                if any(value == '-nan(ind)' or math.isnan(float(value)) for value in csv_data[j]):
-                    include_NaN = True
-                    break
-                if include_NaN == True:
-                    break
-                sub_data_list = [float(element) for element in csv_data[j]]
-                csv_data_float.append(sub_data_list)
-                if sub_data_list[0] >= max_length[which_particle]:
-                    max_length[which_particle] = sub_data_list[0]
-                else:
-                    which_particle += 1
-
-        if np.max(max_length) == 0.0 or include_NaN == True:
+        data_numpy, include_NaN = read_paths(csv_data)
+        if include_NaN == True:
             continue
 
-        max_length_int = max_length.astype(int)
-        max_length_int += 1
-
-        data_numpy = np.array(csv_data_float)
-
-
-        # split_data_numpy的形状为(n_particles, n_keypoints, 5)
-        # When axis=2: particle_id, time, x, y, z
-        split_data_numpy = np.zeros((n_particles, np.max(max_length_int), 5))
-
-        for j in range(len(split_data_numpy)):
-            split_data_numpy[j, :max_length_int[j]] = data_numpy[:max_length_int[j]]
-
-            if max_length_int[j] < np.max(max_length_int):
-                last_particle_position = data_numpy[max_length_int[j]-1]
-                split_data_numpy[j, -(np.max(max_length_int)-max_length_int[j]):] = last_particle_position
-
-            data_numpy = data_numpy[max_length_int[j]:]
+        split_data_numpy = process_paths(csv_data, n_particles)
 
 
         # print(split_data_numpy.shape)   
