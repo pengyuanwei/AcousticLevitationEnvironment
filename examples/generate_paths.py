@@ -1,27 +1,26 @@
 import os
-import csv
 import math
-import torch
-import numpy as np
 import gymnasium as gym
-import time
 
 from utils import *
 from acoustorl import MADDPG
-from acousticlevitationenvironment.particles import particle_slim, target_slim
 
 
-# Change from divide_global_path_8.py
+# Change from evaluate_planner.py
 
 
 if __name__ == "__main__":
-    n_particles = 4
-    global_model_dir_1 = './experiments/experiment_100'
-    global_model_dir_2 = './experiments/experiment_101'
-    global_model_dir_3 = './experiments/experiment_104'
-    global_model_dir_4 = './experiments/experiment_105'
+    n_particles = 8
+    global_model_dir_1 = './experiments/experiment_20'
+    global_model_dir_2 = './experiments/experiment_19'
+    global_model_dir_3 = './experiments/experiment_98'
+    global_model_dir_4 = './experiments/experiment_99'
     best_model_number_1 = 1000
     best_model_number_2 = 1000
+
+    save_dir = os.path.join(global_model_dir_1, '20_19_98_99')
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
     env_name_1 = "acousticlevitationenvironment/GlobalPlannerAPF-v0"
     delta_time_1 = 1.0/10
@@ -85,11 +84,10 @@ if __name__ == "__main__":
     replan_agent_2.load(best_model_number_2, global_model_dir_4)
 
     delta_time_3 = 0.1 * math.sqrt(3)
-    success_num = 1000
+    success_num = 100
     times = []
 
-    for n in range(1000):  
-        start_time = time.time()  # 开始计时
+    for n in range(100):  
         print(f'-----------------------The {n} th set of paths-----------------------')  
 
         key_points, failure1 = generate_global_paths(global_env, main_agent, n_particles, max_timesteps_1)
@@ -112,12 +110,6 @@ if __name__ == "__main__":
                         success_num -= 1
                         continue
 
-        end_time = time.time()  # 记录结束时间
-        elapsed_time = end_time - start_time  # 计算单次运行时间
-        times.append(elapsed_time)
+        save_path(paths, save_dir, n_particles, delta_time_3, n)
 
-    mean_time = np.mean(times)
-    std_time = np.std(times)
-    print(f"平均时间: {mean_time:.6f} 秒")
-    print(f"标准差: {std_time:.6f} 秒")
     print(f'The success number: {success_num}')
