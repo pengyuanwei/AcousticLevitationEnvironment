@@ -13,10 +13,10 @@ from top_bottom_setup import top_bottom_setup
 
 
 if __name__ == '__main__':
-    n_particles = 6
-    global_model_dir_1 = './experiments/experiment_89'
-    model_name = '89_88'
-    num_file = 50
+    n_particles = 8
+    global_model_dir_1 = './experiments/experiment_20'
+    model_name = '20_19_98_99'
+    num_file = 1
     file_name = 'optimised_data'
 
     levitator = top_bottom_setup(n_particles)
@@ -31,30 +31,17 @@ if __name__ == '__main__':
         csv_file = os.path.join(global_model_dir_1, model_name, f'path{str(n)}.csv')
         csv_data = read_csv_file(csv_file)
         if csv_data is None:
+            print(f"Skipping file due to read failure: {csv_file}")
             continue
 
         data_numpy, include_NaN = read_paths(csv_data)
         if include_NaN:
+            print(f"Skipping file due to NaN values: {csv_file}")
             continue
 
         # 每个粒子的轨迹长度相同
-        paths_length = csv_data[1][1].astype(int) + 1
-        # split_data_numpy的形状为(n_particles, n_keypoints, 5)
-        # When axis=2: particle_id, time, x, y, z
-        split_data_numpy = data_numpy.reshape(-1, paths_length, 5)
-
-
-        # print(split_data_numpy.shape)   
-        # print(split_data_numpy[0])
-        # split_data_numpy[:,:,1] 是时间累加值（时间列）
-        # 计算时间变化量（差分）
-        delta_time = np.diff(split_data_numpy[:, :, 1], axis=1)
-
-        # 保留初始时间点为0，补齐成与原数据相同的形状
-        delta_time = np.concatenate([np.zeros((split_data_numpy.shape[0], 1)), delta_time], axis=1)
-
-        # 将时间累加值替换为时间变化量
-        split_data_numpy[:, :, 1] = delta_time 
+        paths_length = int(csv_data[1][1])
+        split_data_numpy = process_paths(data_numpy, paths_length)
 
 
         # 使用随机搜索来优化最弱Gorkov的timesteps

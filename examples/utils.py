@@ -75,6 +75,19 @@ def read_paths(csv_data):
         return np.array([]), True
     
 
+def process_paths(data_numpy, paths_length):
+    # split_data_numpy的形状为(n_particles, n_keypoints, 5)
+    # Axis 2: keypoints_idx, 时间累加值（时间列）, x, y, z
+    split_data_numpy = data_numpy.reshape(-1, paths_length, 5)
+
+    # 时间变化量：dt不变，不需要差分
+    delta_time = split_data_numpy[0][1][1]
+    # 将时间累加值替换为时间变化量
+    split_data_numpy[:, 2:, 1] = delta_time 
+
+    return split_data_numpy
+
+
 def interpolate_positions(coords, delta_time_original=0.1, delta_time_new=32/10000):
     num_interpolations = int(delta_time_original / delta_time_new) - 1
     interpolated_coords = []

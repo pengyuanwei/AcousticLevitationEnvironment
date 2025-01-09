@@ -18,3 +18,16 @@ def process_paths(csv_data, n_particles):
         data_numpy = data_numpy[max_length_int[j]:]
 
     return split_data_numpy
+
+
+def process_paths(data_numpy, paths_length):
+    # split_data_numpy的形状为(n_particles, n_keypoints, 5)
+    # Axis 2: keypoints_idx, 时间累加值（时间列）, x, y, z
+    split_data_numpy = data_numpy.reshape(-1, paths_length, 5)
+
+    # 时间变化量：dt不变，不需要差分
+    delta_time = split_data_numpy[0][1][1]
+    # 将时间累加值替换为时间变化量
+    split_data_numpy[:, 2:, 1] = delta_time 
+
+    return split_data_numpy

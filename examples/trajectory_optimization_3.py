@@ -18,10 +18,10 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
-    n_particles = 6
-    global_model_dir_1 = './experiments/experiment_89'
-    model_name = '89_88'
-    num_file = 50
+    n_particles = 8
+    global_model_dir_1 = './experiments/experiment_20'
+    model_name = '20_19_98_99'
+    num_file = 1
     file_name = 'optimised_data'
 
     # Setup gorkov
@@ -84,7 +84,6 @@ if __name__ == '__main__':
 
         data_numpy = np.array(csv_data_float)
 
-
         # split_data_numpy的形状为(n_particles, n_keypoints, 5)
         # When axis=2: particle_id, time, x, y, z
         split_data_numpy = np.zeros((n_particles, np.max(max_length_int), 5))
@@ -98,9 +97,6 @@ if __name__ == '__main__':
 
             data_numpy = data_numpy[max_length_int[j]:]
 
-
-        # print(split_data_numpy.shape)   
-        # print(split_data_numpy[0])
         # split_data_numpy[:,:,1] 是时间累加值（时间列）
         # 计算时间变化量（差分）
         delta_time = np.diff(split_data_numpy[:, :, 1], axis=1)
