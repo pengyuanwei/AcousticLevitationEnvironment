@@ -16,7 +16,7 @@ if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
     model_name = '20_19_98_99'
-    num_file = 2
+    num_file = 10
     file_name = 'optimised_data'
 
     levitator = top_bottom_setup(n_particles)
@@ -98,13 +98,13 @@ if __name__ == '__main__':
         # Calculate the Gorkov again
         gorkov = levitator.calculate_gorkov(split_data[:, :, 2:])
         max_gorkov = np.max(gorkov, axis=1)
-        print('Max Gorkov after random search:', max_gorkov)
+        print('\nMax Gorkov after random search:', max_gorkov)
 
 
         # 检查所有关键点是否在圆圈内，如果不在，对其进行优化
         for m in range(1, split_data.shape[1] - 1):
             if positions_check(split_data[:, m, 2:], split_data[:, m-1, 2:], split_data[:, m+1, 2:]):
-                print(f'-----------------------The point {m}-----------------------')
+                print(f'\n-----------------------The point {m}-----------------------')
                 # Calculate the Gorkov
                 gorkov = levitator.calculate_gorkov(split_data[:, :, 2:])
                 max_gorkov = np.max(gorkov, axis=1)
@@ -145,38 +145,24 @@ if __name__ == '__main__':
                         break
 
 
+        # 计算时间序列，要求每个片段的平均速度不超过最大速度（0.1m/s）
+        max_displacements = max_displacement_v2(split_data[:, :, 2:])
+        diff_time = max_displacements / 0.1
+        total_time = np.cumsum(diff_time)
+        split_data[:, 1:, 1] = total_time
+
         end_time = time.time()  # 记录当前循环的结束时间
         elapsed_time = end_time - start_time  # 计算当前循环的运行时间
         computation_time.append(elapsed_time)
 
-
         # Calculate the Gorkov again
         gorkov = levitator.calculate_gorkov(split_data[:, :, 2:])
         max_gorkov = np.max(gorkov, axis=1)
-        print('Max Gorkov after trajectory smoothing:', max_gorkov)
+        print('\nMax Gorkov after trajectory smoothing:', max_gorkov)
 
-
-        # # 保存修改后的轨迹
-        # save_path = os.path.join(global_model_dir_1, model_name, f'{file_name}_{str(n)}.csv')
-        # file_instance = open(save_path, "w", encoding="UTF8", newline='')
-        # csv_writer = csv.writer(file_instance)
-
-        # for i in range(n_particles):
-        #     header = ['Agent ID', i]
-        #     row_1 = ['Number of', split_data.shape[1]]
-
-        #     csv_writer.writerow(header)
-        #     csv_writer.writerow(row_1)
-
-        #     rows = []
-        #     path_time = 0.0
-        #     for j in range(split_data.shape[1]):
-        #         path_time += split_data[i][j][1]
-        #         rows = [j, path_time, split_data[i][j][2], split_data[i][j][3], split_data[i][j][4]]
-        #         csv_writer.writerow(rows)
-
-        # file_instance.close()  
-
+        # 保存修改后的轨迹
+        file_path = os.path.join(global_model_dir_1, model_name, f'{file_name}_{str(n)}.csv')
+        save_path_v2(file_path, n_particles, split_data)
 
     computation_time = np.array(computation_time)
     time_mean = np.mean(computation_time)

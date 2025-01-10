@@ -5,15 +5,15 @@ from examples.acoustic_utils import *
 # 轨迹优化器
 
 
-def max_displacement(segment):
-    # segment 是 (3, num_particle, 3) 的形状
+def max_displacement(segment, num=2):
+    # segment 是 (num+1, num_particle, 3) 的形状
     # segment[时刻, 粒子, 坐标]
 
     # 初始化存储最大位移的列表
     max_displacements = []
 
     # 遍历两个时间段 t1->t2 和 t2->t3
-    for t in range(2):  # 两个时间段
+    for t in range(num):  # 两个时间段
         # 计算8个粒子在时间段t到t+1之间的位移
         displacements = np.sqrt(
             (segment[t+1, :, 0] - segment[t, :, 0])**2 +  # x坐标差
@@ -27,6 +27,21 @@ def max_displacement(segment):
 
     # 输出每个时间段的最大位移
     return np.array(max_displacements)
+
+
+def max_displacement_v2(segment):
+    # segment 是形状 (num_particle, lengths, 3)
+
+    # 计算连续时间段的坐标差异
+    displacement_diff = segment[:, 1:, :] - segment[:, :-1, :]  # 形状 (num_particle, num, 3)
+    
+    # 计算欧几里得距离（位移）
+    displacements = np.linalg.norm(displacement_diff, axis=2)  # 形状 (num_particle, num)
+    
+    # 对每个时间段找到最大位移
+    max_displacements = np.max(displacements, axis=0)  # 对粒子轴取最大值
+    
+    return max_displacements
 
 
 def interpolate_positions(coords, delta_time_original=0.1, delta_time_new=0.01):
@@ -93,3 +108,65 @@ def generate_solutions(n_particles, split_data, max_gorkov_idx, levitator):
     sorted_solutions_max_gorkov = solutions_max_gorkov[sorted_indices]
 
     return candidate_solutions, sorted_indices, sorted_solutions_max_gorkov
+
+
+def calculate_dx(key_points):
+    # key_points的形状(n_keypoints, n_particles, 3): [时刻, 粒子, 坐标]
+
+    # 初始化存储位移的列表
+    displacements_set = np.zeros((key_points.shape[0] - 1, key_points.shape[1]))
+
+    # 遍历所有时间段 t1->t2
+    for t in range(key_points.shape[0] - 1):
+        # 计算8个粒子在时间段t到t+1之间的位移
+        displacements = np.sqrt(
+            (key_points[t+1, :, 0] - key_points[t, :, 0])**2 +  # x坐标差
+            (key_points[t+1, :, 1] - key_points[t, :, 1])**2 +  # y坐标差
+            (key_points[t+1, :, 2] - key_points[t, :, 2])**2    # z坐标差
+        )
+        
+        # 保存当前时间段的所有位移
+        displacements_set[t] = displacements
+
+    # 输出每个时间段的所有位移
+    return displacements_set
+
+
+def calculate_mean_v(dx, t_set):
+    # dx    的形状 (n_segments, n_particles)
+    # t_set 的形状 (n_keypoints, ) 应该有 n_segments+1 个 keypoints 对应 n_segments 个时间间隔
+
+    # 初始化存储平均速度的数组
+    n_segments, n_particles = dx.shape
+    velocities_set = np.zeros((n_segments, n_particles))
+
+    # 遍历所有时间段 t1 -> t2
+    for t in range(n_segments):
+        # 计算粒子在时间段 t 到 t+1 之间的平均速度
+        velocities = dx[t] / t_set[t+1]
+
+        # 保存当前时间段的所有平均速度
+        velocities_set[t] = velocities
+
+    # 输出每个时间段的所有平均速度
+    return velocities_set
+
+
+def calculate_accelerations(v_mean, t_set):
+    # v_mean 的形状 (n_segments, n_particles)
+    # t_set  的形状 (n_keypoints, ) 应该有 n_segments+1 个 keypoints 对应 n_segments 个时间间隔
+
+    # 初始化存储加速度的数组
+    n_segments, n_particles = v_mean.shape
+    accelerations_set = np.zeros((n_segments-1, n_particles))
+
+    # 遍历所有segments
+    for t in range(1, n_segments):
+        # 计算粒子从segment 1 到 segment 2 的加速度
+        accelerations = (v_mean[t] - v_mean[t-1]) / t_set[t]
+
+        # 保存所有加速度
+        accelerations_set[t-1] = accelerations
+
+    # 输出所有加速度
+    return accelerations_set

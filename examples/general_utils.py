@@ -33,6 +33,28 @@ def save_path(path, save_dir, n_particles, delta_time, num, file_name='path'):
     file_instance.close()  
 
 
+def save_path_v2(file_path, n_particles, split_data):
+    # 保存修改后的轨迹
+    file_instance = open(file_path, "w", encoding="UTF8", newline='')
+    csv_writer = csv.writer(file_instance)
+
+    for i in range(n_particles):
+        header = ['Agent ID', i]
+        row_1 = ['Number of', split_data.shape[1]]
+
+        csv_writer.writerow(header)
+        csv_writer.writerow(row_1)
+
+        rows = []
+        path_time = 0.0
+        for j in range(split_data.shape[1]):
+            path_time += split_data[i][j][1]
+            rows = [j, path_time, split_data[i][j][2], split_data[i][j][3], split_data[i][j][4]]
+            csv_writer.writerow(rows)
+
+    file_instance.close() 
+
+
 def read_csv_file(file_path):
     data_list = []
     with open(file_path, 'r', newline='', encoding='utf-8') as file:
