@@ -3,8 +3,8 @@ import math
 import torch
 import numpy as np
 
-from utils import *
-from calculate_gorkov_utils import *
+from examples.general_utils import *
+from examples.acoustic_utils import *
 
 
 # Modified based on the trajectory_optimization_1.py

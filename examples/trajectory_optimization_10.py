@@ -59,38 +59,20 @@ if __name__ == '__main__':
             print("Worst gorkov idx:", max_gorkov_idx)
             print("Worst gorkov value:", max_gorkov[max_gorkov_idx])
             
-            # 对最弱key points生成100个潜在solutions，并排序
-            candidate_solutions = np.transpose(
-                create_constrained_points_1(
-                    n_particles, 
-                    split_data[:, max_gorkov_idx, 2:], 
-                    split_data[:, max_gorkov_idx-1, 2:], 
-                    split_data[:, max_gorkov_idx+1, 2:]
-                ), 
-                (1, 0, 2)
+            candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions(
+                n_particles, split_data, max_gorkov_idx, levitator
             )
-
-            # 计算 candidate_solutions 的 Gorkov
-            solutions_gorkov = levitator.calculate_gorkov(candidate_solutions)
-            # 找出每个 candidate_solutions 的最大 Gorkov
-            solutions_max_gorkov = np.max(solutions_gorkov, axis=1)
-            # 根据 Gorkov 对 candidate_solutions 从小到大排序
-            sorted_indices = np.argsort(solutions_max_gorkov)
-            sorted_solutions_max_gorkov = solutions_max_gorkov[sorted_indices]
-
 
             # 依次取出 candidate_solutions，先检查是否Gorkov更好，再检查是否满足距离约束
             # 分别求出前后两个 segment 的最大位移，用于缩放时间
-            re_plan_segment = np.transpose(
-                split_data[:, max_gorkov_idx-1:max_gorkov_idx+2, 2:], 
-                (1, 0, 2)
-            )
+            re_plan_segment = np.transpose(split_data[:, max_gorkov_idx-1:max_gorkov_idx+2, 2:], (1, 0, 2))
 
             for i in range(candidate_solutions.shape[1]):
                 # 如果 candidate_solutions 的 Gorkov 比原坐标的更差，则 break
                 if sorted_solutions_max_gorkov[i] > max_gorkov[max_gorkov_idx]:
                     print('No better candidate than original!')
                     break
+
                 re_plan_segment[1:2, :, :] = np.transpose(
                     candidate_solutions[:, sorted_indices[i]:sorted_indices[i]+1, :], 
                     (1, 0, 2)
@@ -113,7 +95,6 @@ if __name__ == '__main__':
                     split_data[:, max_gorkov_idx, 2:] = np.copy(candidate_solutions[:, sorted_indices[i], :])
                     break
 
-
         # Calculate the Gorkov again
         gorkov = levitator.calculate_gorkov(split_data[:, :, 2:])
         max_gorkov = np.max(gorkov, axis=1)
@@ -128,38 +109,23 @@ if __name__ == '__main__':
                 gorkov = levitator.calculate_gorkov(split_data[:, :, 2:])
                 max_gorkov = np.max(gorkov, axis=1)
 
-                # 对最弱key points生成100个潜在solutions，并排序
-                solutions = np.transpose(
-                    create_constrained_points_1(
-                        n_particles, 
-                        split_data[:, m, 2:], 
-                        split_data[:, m-1, 2:], 
-                        split_data[:, m+1, 2:]
-                    ), 
-                    (1, 0, 2)
+                candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions(
+                    n_particles, split_data, m, levitator
                 )
-
-                # 计算solutions的Gorkov
-                solutions_gorkov = levitator.calculate_gorkov(solutions)
-                # 找出每个solutions的最大Gorkov
-                solutions_max_gorkov = np.max(solutions_gorkov, axis=1)
-                # 根据Gorkov对solutions从小到大排序
-                sorted_indices = np.argsort(solutions_max_gorkov)
-                sorted_solutions_max_gorkov = solutions_max_gorkov[sorted_indices]
-
 
                 # 依次取出solutions，先检查是否Gorkov更好，再检查是否满足距离约束
                 # 分别求出两个segment的最大位移，用于缩放时间                
-                re_plan_segment = np.transpose(
-                    split_data[:, m-1:m+2, 2:], 
-                    (1, 0, 2)
-                )
-                
-                for i in range(solutions.shape[1]):
+                re_plan_segment = np.transpose(split_data[:, m-1:m+2, 2:], (1, 0, 2))
+
+                for i in range(candidate_solutions.shape[1]):
                     # 检查solutions的Gorkov是否比原坐标更差
                     if sorted_solutions_max_gorkov[i] > max_gorkov[m]:
                         print('Worse gorkov!')
-                    re_plan_segment[1:2, :, :] = np.transpose(solutions[:, sorted_indices[i]:sorted_indices[i]+1, :], (1, 0, 2))
+                        
+                    re_plan_segment[1:2, :, :] = np.transpose(
+                        candidate_solutions[:, sorted_indices[i]:sorted_indices[i]+1, :], 
+                        (1, 0, 2)
+                    )
 
                     for k in range(2):
                         segment = re_plan_segment[k:(k+2)]
@@ -175,7 +141,7 @@ if __name__ == '__main__':
 
                     if np.all(collision == 0):
                         print("Best candidate idx (start from 0):", i)
-                        split_data[:, m, 2:] = np.copy(solutions[:, sorted_indices[i], :])
+                        split_data[:, m, 2:] = np.copy(candidate_solutions[:, sorted_indices[i], :])
                         break
 
 

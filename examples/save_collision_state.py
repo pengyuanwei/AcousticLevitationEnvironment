@@ -6,7 +6,7 @@ import numpy as np
 import gymnasium as gym
 import time
 
-from utils import *
+from examples.general_utils import *
 from acoustorl import MADDPG
 from acousticlevitationenvironment.particles import particle_slim, target_slim
 
