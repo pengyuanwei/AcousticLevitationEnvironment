@@ -583,14 +583,14 @@ def compute_delta_angles(front_keypoints, current_keypoints, back_keypoints, deg
     return delta_angles
 
 
-def positions_check(N, cur_positions, last_positions, next_positions):
+def positions_check(cur_positions, last_positions, next_positions):
     cube_size = np.linalg.norm((next_positions - last_positions), axis=1)
     search_area_center = (next_positions + last_positions) / 2.0
 
     relative_dist = np.linalg.norm((cur_positions - search_area_center), axis=1)
 
     # 使用向量化比较
-    return np.all(relative_dist <= (cube_size/(2*2.42)))
+    return np.any(relative_dist > (cube_size/(2*2.42)))
 
 
 def calculate_gorkov(key_points, n_particles, transducer, delta, b, num_transducer, k1, k2):

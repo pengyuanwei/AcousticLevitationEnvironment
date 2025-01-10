@@ -187,69 +187,69 @@ if __name__ == '__main__':
         print('Max Gorkov after random search:', max_gorkov)
 
 
-        # # 检查所有关键点是否在圆圈内，如果不在，对其进行优化
-        # for m in range(1, split_data_numpy.shape[1] - 1):
-        #     if not positions_check(n_particles, split_data_numpy[:, m, 2:], split_data_numpy[:, m-1, 2:], split_data_numpy[:, m+1, 2:]):
-        #         print(f'-----------------------The point {m}-----------------------')
-        #         # Calculate the Gorkov
-        #         gorkov = calculate_gorkov(split_data_numpy[:, :, 2:], n_particles, transducer, delta, b, num_transducer, k1, k2)
-        #         max_gorkov = np.max(gorkov, axis=1)
+        # 检查所有关键点是否在圆圈内，如果不在，对其进行优化
+        for m in range(1, split_data_numpy.shape[1] - 1):
+            if positions_check(split_data_numpy[:, m, 2:], split_data_numpy[:, m-1, 2:], split_data_numpy[:, m+1, 2:]):
+                print(f'-----------------------The point {m}-----------------------')
+                # Calculate the Gorkov
+                gorkov = calculate_gorkov(split_data_numpy[:, :, 2:], n_particles, transducer, delta, b, num_transducer, k1, k2)
+                max_gorkov = np.max(gorkov, axis=1)
 
-        #         re_plan_segment = np.copy(split_data_numpy[:, m-1:m+2, 2:])
-        #         re_plan_segment = np.transpose(re_plan_segment, (1, 0, 2))
+                re_plan_segment = np.copy(split_data_numpy[:, m-1:m+2, 2:])
+                re_plan_segment = np.transpose(re_plan_segment, (1, 0, 2))
                 
-        #         # 对最弱key points生成100个潜在solutions，并排序
-        #         solutions = np.transpose(create_constrained_points_1(
-        #             n_particles, 
-        #             split_data_numpy[:, m, 2:], 
-        #             split_data_numpy[:, m-1, 2:], 
-        #             split_data_numpy[:, m+1, 2:]), 
-        #             (1, 0, 2))
-        #         #print(solutions.shape)
+                # 对最弱key points生成100个潜在solutions，并排序
+                solutions = np.transpose(create_constrained_points_1(
+                    n_particles, 
+                    split_data_numpy[:, m, 2:], 
+                    split_data_numpy[:, m-1, 2:], 
+                    split_data_numpy[:, m+1, 2:]), 
+                    (1, 0, 2))
+                #print(solutions.shape)
 
-        #         # 计算solutions的Gorkov
-        #         solutions_gorkov = calculate_gorkov(solutions, n_particles, transducer, delta, b, num_transducer, k1, k2)
-        #         #print(solutions_gorkov.shape)
+                # 计算solutions的Gorkov
+                solutions_gorkov = calculate_gorkov(solutions, n_particles, transducer, delta, b, num_transducer, k1, k2)
+                #print(solutions_gorkov.shape)
 
-        #         # 找出每个solutions的最大Gorkov
-        #         solutions_max_gorkov = np.max(solutions_gorkov, axis=1)
-        #         #print(solutions_max_gorkov.shape)
+                # 找出每个solutions的最大Gorkov
+                solutions_max_gorkov = np.max(solutions_gorkov, axis=1)
+                #print(solutions_max_gorkov.shape)
 
-        #         # 根据Gorkov对solutions从小到大排序
-        #         sorted_indices = np.argsort(solutions_max_gorkov)
-        #         sorted_solutions_max_gorkov = solutions_max_gorkov[sorted_indices]
+                # 根据Gorkov对solutions从小到大排序
+                sorted_indices = np.argsort(solutions_max_gorkov)
+                sorted_solutions_max_gorkov = solutions_max_gorkov[sorted_indices]
 
 
-        #         # 依次取出solutions，先检查是否Gorkov更好，再检查是否满足距离约束
-        #         # 分别求出两个segment的最大位移，用于缩放时间                
-        #         original_max_displacement = max_displacement(re_plan_segment)
-        #         for i in range(solutions.shape[1]):
-        #             # 检查solutions的Gorkov是否比原坐标更差
-        #             if sorted_solutions_max_gorkov[i] > max_gorkov[m]:
-        #                 print('Worse gorkov!')
-        #             re_plan_segment[1:2, :, :] = np.transpose(solutions[:, sorted_indices[i]:sorted_indices[i]+1, :], (1, 0, 2))
+                # 依次取出solutions，先检查是否Gorkov更好，再检查是否满足距离约束
+                # 分别求出两个segment的最大位移，用于缩放时间                
+                original_max_displacement = max_displacement(re_plan_segment)
+                for i in range(solutions.shape[1]):
+                    # 检查solutions的Gorkov是否比原坐标更差
+                    if sorted_solutions_max_gorkov[i] > max_gorkov[m]:
+                        print('Worse gorkov!')
+                    re_plan_segment[1:2, :, :] = np.transpose(solutions[:, sorted_indices[i]:sorted_indices[i]+1, :], (1, 0, 2))
 
-        #             for k in range(2):
-        #                 segment = re_plan_segment[k:(k+2)]
-        #                 interpolated_coords = interpolate_positions(segment)
+                    for k in range(2):
+                        segment = re_plan_segment[k:(k+2)]
+                        interpolated_coords = interpolate_positions(segment)
                         
-        #                 for j in range(interpolated_coords.shape[0]):
-        #                     collision = safety_area(n_particles, interpolated_coords[j])
-        #                     if not np.all(collision == 0):
-        #                         break
-        #                 if not np.all(collision == 0):
-        #                     break
+                        for j in range(interpolated_coords.shape[0]):
+                            collision = safety_area(n_particles, interpolated_coords[j])
+                            if not np.all(collision == 0):
+                                break
+                        if not np.all(collision == 0):
+                            break
 
-        #             if np.all(collision == 0):
-        #                 print(i)
-        #                 split_data_numpy[:, m, 2:] = np.copy(solutions[:, sorted_indices[i], :])
+                    if np.all(collision == 0):
+                        print(i)
+                        split_data_numpy[:, m, 2:] = np.copy(solutions[:, sorted_indices[i], :])
 
-        #                 # 修改时间间隔
-        #                 new_max_displacement = max_displacement(re_plan_segment)
-        #                 time_zoom = new_max_displacement / original_max_displacement
-        #                 split_data_numpy[:, m, 1] *= time_zoom[0]
-        #                 split_data_numpy[:, m+1, 1] *= time_zoom[1]
-        #                 break
+                        # 修改时间间隔
+                        new_max_displacement = max_displacement(re_plan_segment)
+                        time_zoom = new_max_displacement / original_max_displacement
+                        split_data_numpy[:, m, 1] *= time_zoom[0]
+                        split_data_numpy[:, m+1, 1] *= time_zoom[1]
+                        break
 
         # # 将时间向上取整，变成0.0032的整数倍
         # split_data_numpy[:, 1:, 1] = np.ceil(split_data_numpy[:, 1:, 1] / 0.0032) * 0.0032
