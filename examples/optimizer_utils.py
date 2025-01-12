@@ -132,6 +132,19 @@ def calculate_dx(key_points):
     return displacements_set
 
 
+def calculate_dx_v2(segment):
+    # segment 是形状 (num_particle, lengths, 3)
+
+    # 计算连续时间段的坐标差异
+    displacement_diff = segment[:, 1:, :] - segment[:, :-1, :]  # 形状 (num_particle, num, 3)
+    
+    # 计算欧几里得距离（位移）
+    displacements = np.linalg.norm(displacement_diff, axis=2)  # 形状 (num_particle, num)
+
+    # 输出每个时间段的所有位移
+    return displacements
+
+
 def calculate_mean_v(dx, t_set):
     # dx    的形状 (n_segments, n_particles)
     # t_set 的形状 (n_keypoints, ) 应该有 n_segments+1 个 keypoints 对应 n_segments 个时间间隔
@@ -149,6 +162,19 @@ def calculate_mean_v(dx, t_set):
         velocities_set[t] = velocities
 
     # 输出每个时间段的所有平均速度
+    return velocities_set
+
+
+def calculate_mean_v_v2(dx, t_set):
+    # dx: (n_segments, n_particles)
+    # t_set: (n_keypoints,)
+    # 确保 t_set 的长度与 n_segments+1 对应
+    assert t_set.shape[0] == dx.shape[0] + 1
+
+    # 使用广播直接计算平均速度
+    # # t_set[1:] 的形状是 (n_segments,)，广播到 (n_segments, n_particles)
+    velocities_set = dx / t_set[1:, None]  
+
     return velocities_set
 
 
