@@ -17,12 +17,9 @@ def smooth_acceleration_trajectory(start, end, total_time: float, dt):
     # 时间分段
     T_acc = total_time
 
-    # 加速阶段时间分段
-    T_acc_half = T_acc / 2  # 加速阶段分为两半
-
     # 最大加速度和最大速度
-    a_max = 2 * L / T_acc**2  # 最大加速度
-    v_max = (a_max * T_acc) / 2  # 最大速度
+    a_max = 4 * L / T_acc**2  # 最大加速度
+    v_max = (1/2) * a_max * T_acc  # 最大速度
 
     # 时间数组
     t = np.arange(0, T_acc, dt)
@@ -31,7 +28,7 @@ def smooth_acceleration_trajectory(start, end, total_time: float, dt):
     positions = []
 
     for ti in t:
-        if ti <= T_acc_half:
+        if ti <= (T_acc / 2):
             # 加速阶段前半部分：加速度均匀增加
             a = (2 * a_max * ti) / T_acc
             v = (a_max * ti**2) / T_acc
@@ -40,7 +37,7 @@ def smooth_acceleration_trajectory(start, end, total_time: float, dt):
             # 加速阶段后半部分：加速度均匀减少
             a = (-2 * a_max * ti) / T_acc + 2 * a_max
             v = (-1 * a_max * ti**2) / T_acc + 2 * a_max * ti - (a_max * T_acc) / 2
-            s = L
+            s = (-1/3) * (a_max * ti**3) / T_acc + a_max * ti**2 - (1/2) * a_max * T_acc * ti + (1/12) * a_max * T_acc**2
         else:
             a = 0.0
             v = v_max
@@ -52,7 +49,11 @@ def smooth_acceleration_trajectory(start, end, total_time: float, dt):
 
     # 转换为 3D 轨迹
     positions = np.array(positions)
-    trajectory = np.outer(positions / L, direction) + start
+    trajectory = np.outer(positions, direction) + start
+
+    print(L)
+    print(direction)
+    print(positions)
 
     return t, accelerations, velocities, trajectory
 
@@ -65,25 +66,25 @@ dt = 0.1
 # 计算轨迹
 t, accelerations, velocities, trajectory = smooth_acceleration_trajectory(start, end, total_time, dt)
 
-# 可视化速度
-plt.figure(figsize=(10, 6))
-plt.plot(t, velocities, label="Velocity (Smooth)", color='blue')
-plt.xlabel("Time (s)")
-plt.ylabel("Velocity (units/s)")
-plt.title("Velocity vs Time (Smooth Profile)")
-plt.grid()
-plt.legend()
-plt.show()
+# # 可视化速度
+# plt.figure(figsize=(10, 6))
+# plt.plot(t, velocities, label="Velocity (Smooth)", color='blue')
+# plt.xlabel("Time (s)")
+# plt.ylabel("Velocity (units/s)")
+# plt.title("Velocity vs Time (Smooth Profile)")
+# plt.grid()
+# plt.legend()
+# plt.show()
 
-# 可视化加速度
-plt.figure(figsize=(10, 6))
-plt.plot(t, accelerations, label="Acceleration (Smooth)", color='orange')
-plt.xlabel("Time (s)")
-plt.ylabel("Acceleration (units/s²)")
-plt.title("Acceleration vs Time (Smooth Profile)")
-plt.grid()
-plt.legend()
-plt.show()
+# # 可视化加速度
+# plt.figure(figsize=(10, 6))
+# plt.plot(t, accelerations, label="Acceleration (Smooth)", color='orange')
+# plt.xlabel("Time (s)")
+# plt.ylabel("Acceleration (units/s²)")
+# plt.title("Acceleration vs Time (Smooth Profile)")
+# plt.grid()
+# plt.legend()
+# plt.show()
 
 # 可视化轨迹
 fig = plt.figure(figsize=(10, 6))
