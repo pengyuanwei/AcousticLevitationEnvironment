@@ -3,8 +3,8 @@ import math
 import torch
 import numpy as np
 
-from examples.general_utils import *
-from examples.acoustic_utils import *
+from examples.utils.general_utils import *
+from examples.utils.acoustic_utils import *
 
 
 # Modified based on the trajectory_optimization_1.py
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     k1=volume/4*(1/(density_0*speed_0**2)-1/(density_p*speed_p**2))
     k2=3*volume/4*(density_0-density_p)/(w**2*density_0*(2*density_p+density_0))
 
-    transducer = torch.cat((Gorkov_new.create_board(17,-.24/2),Gorkov_new.create_board(17,.24/2)),axis=0)
+    transducer = torch.cat((examples.utils.Gorkov_new.create_board(17,-.24/2),examples.utils.Gorkov_new.create_board(17,.24/2)),axis=0)
     num_transducer = transducer.shape[0]
     m = n_particles
     b = torch.ones(m,1) +1j*torch.zeros(m,1)

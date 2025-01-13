@@ -2,10 +2,10 @@ import os
 import time
 import numpy as np
 
-from top_bottom_setup import top_bottom_setup
-from examples.general_utils import *
-from examples.acoustic_utils import *
-from examples.optimizer_utils import *
+from examples.utils.top_bottom_setup import top_bottom_setup
+from examples.utils.general_utils import *
+from examples.utils.acoustic_utils import *
+from examples.utils.optimizer_utils import *
 
 
 # Do random search to find better Gorkov points for finded paths(keypoints)

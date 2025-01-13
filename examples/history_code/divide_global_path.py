@@ -5,7 +5,7 @@ import torch
 import numpy as np
 import gymnasium as gym
 
-from examples.general_utils import *
+from examples.utils.general_utils import *
 from acoustorl import MADDPG
 from acousticlevitationenvironment.utils import general_utils
 

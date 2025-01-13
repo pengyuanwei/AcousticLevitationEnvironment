@@ -4,8 +4,8 @@ import torch
 import os
 from scipy.spatial.distance import cdist
 
-from general_utils import *
-import Gorkov_new
+from examples.utils.general_utils import *
+import examples.utils.Gorkov_new as Gorkov_new
 
 
 # Modified based on the calculate_gorkov_v2.py

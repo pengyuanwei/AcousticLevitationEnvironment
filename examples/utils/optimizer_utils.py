@@ -1,5 +1,5 @@
 import numpy as np
-from examples.acoustic_utils import *
+from examples.utils.acoustic_utils import *
 
 
 # 轨迹优化器

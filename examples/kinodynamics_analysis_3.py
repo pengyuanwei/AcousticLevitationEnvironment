@@ -7,7 +7,7 @@ from examples.utils.acoustic_utils import *
 from examples.utils.optimizer_utils import *
 
 
-# Modified based on the kinodynamics_analysis_1.py
+# Modified based on the kinodynamics_analysis_2.py: integrate S curve
 
 
 if __name__ == '__main__':

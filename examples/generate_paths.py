@@ -2,7 +2,7 @@ import os
 import math
 import gymnasium as gym
 
-from examples.general_utils import *
+from examples.utils.general_utils import *
 from acoustorl import MADDPG
 
 
