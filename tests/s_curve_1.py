@@ -2,14 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-def smooth_acceleration_trajectory(start, end, total_time: float, dt):
+def smooth_acceleration_trajectory(start: np.array, end: np.array, total_time: float, dt: float):
     '''
-    start: numpy array
-    end: numpy array
-    total_time: float
+    输入：
+        起点和终点
+
+    输出：
+        符合常变加速度的速度S曲线的平滑插值轨迹
     '''
-    start = np.array(start)
-    end = np.array(end)
     # 计算轨迹长度和方向
     L = np.linalg.norm(end - start)  # 总路径长度
     direction = (end - start) / L   # 单位方向向量
@@ -51,15 +51,11 @@ def smooth_acceleration_trajectory(start, end, total_time: float, dt):
     positions = np.array(positions)
     trajectory = np.outer(positions, direction) + start
 
-    print(L)
-    print(direction)
-    print(positions)
-
     return t, accelerations, velocities, trajectory
 
 # 参数
-start = (0, 0, 0)
-end = (10, 10, 10)
+start = np.array([0, 0, 0])
+end = np.array([10, 10, 10])
 total_time = 10.0
 dt = 0.1
 
