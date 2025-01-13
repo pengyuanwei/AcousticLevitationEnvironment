@@ -16,7 +16,7 @@ if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
     model_name = '20_19_98_99'
-    num_file = 10
+    num_file = 20
     file_name = 'optimised_data'
 
     levitator = top_bottom_setup(n_particles)
@@ -145,10 +145,14 @@ if __name__ == '__main__':
                         break
 
 
-        # 计算时间序列，要求每个片段的平均速度不超过最大速度（0.1m/s）
+        # 计算时间序列，要求每个片段的最大速度不超过最大速度（0.1m/s）
         max_displacements = max_displacement_v2(split_data[:, :, 2:])
         diff_time = max_displacements / 0.1
-        total_time = np.cumsum(diff_time)
+        # 向上取整为 32.0/10000 的整数倍
+        step = 32.0 / 10000
+        rounded_diff_time = np.ceil(diff_time / step) * step
+        # 计算累计时间并保存
+        total_time = np.cumsum(rounded_diff_time)
         split_data[:, 1:, 1] = total_time
 
         end_time = time.time()  # 记录当前循环的结束时间

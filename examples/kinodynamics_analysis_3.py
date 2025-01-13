@@ -36,71 +36,27 @@ if __name__ == '__main__':
 
         # 每个粒子的轨迹长度相同
         paths_length = int(csv_data[1][1])
-        # split_data_numpy的形状为(n_particles, n_keypoints, 5)
+        # split_data_numpy的形状为(n_particles, paths_length, 5)
         # When axis=2: keypoints_id, time, x, y, z
         split_data = data_numpy.reshape(-1, paths_length, 5)
 
-        # split_data_numpy[:,:,1] 是时间累加值（时间列）
         # 计算时间变化量（差分）
+        # split_data_numpy[:,:,1] 是时间累加值（时间列）
         delta_time = np.diff(split_data[0, :, 1], axis=0)
-        # 保留初始时间点为0，补齐成与原数据相同的形状
-        t_set = np.concatenate([[0.0], delta_time], axis=0)
-        #print(t_set)
-
-        dx = calculate_dx_v2(split_data[:, :, 2:])
-        dx = np.transpose(dx, (1, 0))
-        v_mean = calculate_mean_v_v2(dx, t_set)
-        #print(v_mean)
 
         # 对第一段和最后一段进行插值处理
-        # 先修改第一段和最后一段的dt
-        t_set[1] *= 2
-        t_set[-1] *= 2
-        #print(t_set)
+        # 修改第一段和最后一段的dt: 每个segment的dt为确保所有粒子速度小于等于0.1m/s的最大时间
+        # dt_new = 20 * s = 20 * (0.1 * dt) = 2 * dt
+        delta_time[0] *= 2
+        delta_time[-1] *= 2
 
-        new_t_set = np.zeros(t_set.shape[0] + 18)
-        # 前10个元素设置为 t_set[1] / 10
-        new_t_set[1:11] = t_set[1] / 10
-        # 后10个元素设置为 t_set[-1] / 10
-        new_t_set[-10:] = t_set[-1] / 10
-        # 中间部分赋值为 t_set 的第2个到倒数第2个元素
-        new_t_set[11:-10] = t_set[2:-1]
-        #print(new_t_set)
+        # 计算速度S曲线
+        t, accelerations, velocities, trajectories = smooth_acceleration_trajectories(
+            split_data[:, 0, 2:], split_data[:, 1, 2:], delta_time[0], dt=32.0/10000
+        )
+        # 可视化所有粒子
+        visualize_all_particles(t, accelerations, velocities, trajectories)
 
-
-        # 对坐标key_points进行插值处理
-        key_points = np.transpose(split_data[:, :, 2:], (1, 0, 2))
-
-        new_key_points = np.zeros((key_points.shape[0] + 18, n_particles, 3))
-        new_key_points[0] = key_points[0]
-        new_key_points[11:-10] = key_points[2:-1]
-
-
-        coordinate_changes_0 = (key_points[1] - key_points[0]) / 100
-        for i in range(1, 11):
-            new_key_points[i] = key_points[0] + coordinate_changes_0 * (i**2)
-
-        coordinate_changes_1 = (key_points[-1] - key_points[-2]) / 100
-        for i in range(1, 11):
-            new_key_points[-11+i] = key_points[-2] + coordinate_changes_1 * (20 * i - i**2)
-
-
-        new_dx = calculate_dx(new_key_points)
-        print(dx, '\n')
-        v_mean = calculate_mean_v(new_dx, new_t_set)
-        print(v_mean, '\n')
-        accelerations = calculate_accelerations(v_mean, new_t_set)
-        print(accelerations)
-
-
-        # new_split_data_numpy = np.zeros((n_particles, new_key_points.shape[0], 5))
-        # for i in range(new_key_points.shape[0]):
-        #     new_split_data_numpy[:, i, 0] = i
-
-        # for i in range(n_particles):
-        #     new_split_data_numpy[i, :, 1] = new_t_set
-
-        # new_split_data_numpy[:, :, 2:] = np.transpose(new_key_points, (1, 0, 2))
 
 
         # # # 保存修改后的轨迹

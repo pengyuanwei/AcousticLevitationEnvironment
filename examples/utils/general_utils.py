@@ -46,10 +46,8 @@ def save_path_v2(file_path, n_particles, split_data):
         csv_writer.writerow(row_1)
 
         rows = []
-        path_time = 0.0
         for j in range(split_data.shape[1]):
-            path_time += split_data[i][j][1]
-            rows = [j, path_time, split_data[i][j][2], split_data[i][j][3], split_data[i][j][4]]
+            rows = [j, split_data[i][j][1], split_data[i][j][2], split_data[i][j][3], split_data[i][j][4]]
             csv_writer.writerow(rows)
 
     file_instance.close() 

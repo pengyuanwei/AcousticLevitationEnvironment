@@ -33,10 +33,10 @@ def max_displacement_v2(segment):
     # segment 是形状 (num_particle, lengths, 3)
 
     # 计算连续时间段的坐标差异
-    displacement_diff = segment[:, 1:, :] - segment[:, :-1, :]  # 形状 (num_particle, num, 3)
+    displacement_diff = segment[:, 1:, :] - segment[:, :-1, :]  # 形状 (num_particle, lengths-1, 3)
     
     # 计算欧几里得距离（位移）
-    displacements = np.linalg.norm(displacement_diff, axis=2)  # 形状 (num_particle, num)
+    displacements = np.linalg.norm(displacement_diff, axis=2)  # 形状 (num_particle, lengths-1)
     
     # 对每个时间段找到最大位移
     max_displacements = np.max(displacements, axis=0)  # 对粒子轴取最大值
