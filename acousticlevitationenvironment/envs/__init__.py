@@ -1,8 +1,8 @@
-from acousticlevitationenvironment.envs.global_train import GlobalTrain
-from acousticlevitationenvironment.envs.global_eval import GlobalEval
+from acousticlevitationenvironment.envs.train_env import TrainEnv
+from acousticlevitationenvironment.envs.eval_env import EvalEnv
 
-from acousticlevitationenvironment.envs.global_planner import GlobalPlanner
-from acousticlevitationenvironment.envs.global_re_planner import GlobalRePlanner
+from acousticlevitationenvironment.envs.planner import Planner
+from acousticlevitationenvironment.envs.re_planner import RePlanner
 
 from acousticlevitationenvironment.envs.planner_APF import PlannerAPF
 from acousticlevitationenvironment.envs.re_planner_APF import RePlannerAPF

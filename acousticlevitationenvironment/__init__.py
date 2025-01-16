@@ -2,26 +2,26 @@ from gymnasium.envs.registration import register
 
 
 register(
-     id="acousticlevitationenvironment/GlobalTrain-v0",
-     entry_point="acousticlevitationenvironment.envs:GlobalTrain",
+     id="acousticlevitationenvironment/TrainEnv-v0",
+     entry_point="acousticlevitationenvironment.envs:TrainEnv",
      max_episode_steps=20,
 )
 
 register(
-     id="acousticlevitationenvironment/GlobalEval-v0",
-     entry_point="acousticlevitationenvironment.envs:GlobalEval",
+     id="acousticlevitationenvironment/EvalEnv-v0",
+     entry_point="acousticlevitationenvironment.envs:EvalEnv",
      max_episode_steps=20,
 )
 
 register(
-     id="acousticlevitationenvironment/GlobalPlanner-v0",
-     entry_point="acousticlevitationenvironment.envs:GlobalPlanner",
+     id="acousticlevitationenvironment/Planner-v0",
+     entry_point="acousticlevitationenvironment.envs:Planner",
      max_episode_steps=20,
 )
 
 register(
-     id="acousticlevitationenvironment/GlobalRePlanner-v0",
-     entry_point="acousticlevitationenvironment.envs:GlobalRePlanner",
+     id="acousticlevitationenvironment/RePlanner-v0",
+     entry_point="acousticlevitationenvironment.envs:RePlanner",
      max_episode_steps=20,
 )
 

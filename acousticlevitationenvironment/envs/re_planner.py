@@ -5,12 +5,11 @@ import gymnasium as gym
 
 from typing import Optional, Tuple, Any, List, Dict
 
-from acousticlevitationenvironment.envs import GlobalPlanner
+from acousticlevitationenvironment.envs import Planner
 from acousticlevitationenvironment.particles import particle_slim, target_slim
-from acousticlevitationenvironment.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, create_points_multistage, optimal_pairing
 
 
-class GlobalRePlanner(GlobalPlanner):
+class RePlanner(Planner):
     """
     A multi-particle path planning environment for gymnasium.
 

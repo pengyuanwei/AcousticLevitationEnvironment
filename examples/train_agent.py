@@ -3,7 +3,6 @@ import torch
 import numpy as np
 import gymnasium as gym
 import matplotlib.pyplot as plt
-import acousticlevitationgym
 
 from acousticlevitationenvironment.utils import general_utils
 from acoustorl import MADDPG
@@ -129,8 +128,8 @@ if __name__ == "__main__":
     
     print("The device is:", device)
 
-    env_name = "acoustic_levitation_environment_v2/GlobalTrain-v0"
-    eval_env_name = "acoustic_levitation_environment_v2/GlobalPlanner-v0"
+    env_name = "acoustic_levitation_environment_v2/TrainEnv-v0"
+    eval_env_name = "acoustic_levitation_environment_v2/PlannerEnv-v0"
 
     env = gym.make(env_name, n_particles=n_particles, delta_time=delta_time, max_timesteps=max_timesteps)
     eval_env = gym.make(eval_env_name, n_particles=n_particles, delta_time=delta_time, max_timesteps=max_timesteps)
