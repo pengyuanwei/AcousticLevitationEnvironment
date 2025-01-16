@@ -4,5 +4,5 @@ from acousticlevitationenvironment.envs.global_eval import GlobalEval
 from acousticlevitationenvironment.envs.global_planner import GlobalPlanner
 from acousticlevitationenvironment.envs.global_re_planner import GlobalRePlanner
 
-from acousticlevitationenvironment.envs.global_planner_APF import GlobalPlannerAPF
-from acousticlevitationenvironment.envs.global_re_planner_APF import GlobalRePlannerAPF
+from acousticlevitationenvironment.envs.planner_APF import PlannerAPF
+from acousticlevitationenvironment.envs.re_planner_APF import RePlannerAPF

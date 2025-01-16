@@ -26,13 +26,13 @@ register(
 )
 
 register(
-     id="acousticlevitationenvironment/GlobalPlannerAPF-v0",
-     entry_point="acousticlevitationenvironment.envs:GlobalPlannerAPF",
+     id="acousticlevitationenvironment/PlannerAPF-v0",
+     entry_point="acousticlevitationenvironment.envs:PlannerAPF",
      max_episode_steps=20,
 )
 
 register(
-     id="acousticlevitationenvironment/GlobalRePlannerAPF-v0",
-     entry_point="acousticlevitationenvironment.envs:GlobalRePlannerAPF",
+     id="acousticlevitationenvironment/RePlannerAPF-v0",
+     entry_point="acousticlevitationenvironment.envs:RePlannerAPF",
      max_episode_steps=20,
 )

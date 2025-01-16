@@ -6,10 +6,10 @@ import gymnasium as gym
 from typing import Optional, Tuple, Any, List, Dict
 
 from acousticlevitationenvironment.particles import particle_slim, target_slim
-from acousticlevitationenvironment.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, create_points_multistage, optimal_pairing
+from acousticlevitationenvironment.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing, check_and_correct_positions
 
 
-class GlobalEval(gym.Env):
+class PlannerAPF(gym.Env):
     """
     A multi-particle path planning environment for gymnasium.
 
@@ -115,8 +115,8 @@ class GlobalEval(gym.Env):
             self.particles.append(particle_slim(start_positions[i][0], start_positions[i][1], start_positions[i][2]))
             index = pairs[i][1]
             self.targets.append(target_slim(target_positions[index][0], target_positions[index][1], target_positions[index][2]))
+            #print(target_positions[index])
     
-
 
     def step(self, action):
         self.collision = np.zeros(self.n_particles)
@@ -141,21 +141,26 @@ class GlobalEval(gym.Env):
 
         self.safety_area()
 
+        if not np.all(self.collision == 0.0):
+            positions = np.zeros((self.n_particles, 3))
+            for i, particle in enumerate(self.particles):
+                positions[i] = [particle.x, particle.y, particle.z]
+
+            new_positions, satisfied = check_and_correct_positions(positions)
+
+            if satisfied:
+                self.collision.fill(0.0)
+                for i, particle in enumerate(self.particles):
+                    particle.x = new_positions[i][0]
+                    particle.y = new_positions[i][1]
+                    particle.z = new_positions[i][2]
+
         temp = self.reward_function()
         for i in range(self.n_particles):
             reward[i] = np.sum(temp) - self.collision[i] * temp[i]
-        
-        truncated = self._is_it_truncated()
 
-        if_terminated = self._is_it_terminated()
-        if if_terminated == 1:
-            reward += 20.0
-            terminated = True
-        elif if_terminated == 2:
-            truncated = True 
-            terminated = False      
-        else:
-            terminated = False
+        terminated = self._is_it_terminated()
+        truncated = self._is_it_truncated()
 
         return self._get_obs(), reward, terminated, truncated, self._info
 
@@ -173,8 +178,8 @@ class GlobalEval(gym.Env):
                 if dist_square <= 1.0:
                     self.collision[i] = 1.0
                     self.collision[j] = 1.0
-    
 
+    
     def reward_function(self):
         reward = np.zeros(self.n_particles)
 
@@ -189,24 +194,20 @@ class GlobalEval(gym.Env):
         
 
     def _is_it_terminated(self):
-        terminated = 1
-
-        if not np.all(self.collision == 0.0):
-            terminated = 2
-            return terminated
-        
         for i in range(len(self.particles)):
             if self.particles[i].last_timestep_dist > 0.01:
-                terminated = 0
-                return terminated
+                return False
 
-        return terminated
+        return True
 
 
     def _is_it_truncated(self):
-        truncated = False
+        if not np.all(self.collision == 0.0):
+            print('Collision!/n')
+            return True  
 
         if self.time_step >= self.max_timesteps:
-            truncated = True
+            print('Out of time!/n')
+            return True       
         
-        return truncated
+        return False     
