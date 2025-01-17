@@ -5,8 +5,8 @@ import gymnasium as gym
 
 from typing import Optional, Tuple, Any, List, Dict
 
-from acousticlevitationenvironment.particles import particle_slim, target_slim
-from acousticlevitationenvironment.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing
+from acousticlevitationgym.particles import particle_slim, target_slim
+from acousticlevitationgym.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing
 
 
 class EvalEnv(gym.Env):
@@ -117,7 +117,6 @@ class EvalEnv(gym.Env):
             self.targets.append(target_slim(target_positions[index][0], target_positions[index][1], target_positions[index][2]))
     
 
-
     def step(self, action):
         self.collision = np.zeros(self.n_particles)
         reward = np.zeros(self.n_particles)
@@ -146,16 +145,10 @@ class EvalEnv(gym.Env):
             reward[i] = np.sum(temp) - self.collision[i] * temp[i]
         
         truncated = self._is_it_truncated()
-
-        if_terminated = self._is_it_terminated()
-        if if_terminated == 1:
+        terminated = self._is_it_terminated()
+        
+        if terminated:
             reward += 20.0
-            terminated = True
-        elif if_terminated == 2:
-            truncated = True 
-            terminated = False      
-        else:
-            terminated = False
 
         return self._get_obs(), reward, terminated, truncated, self._info
 
@@ -189,24 +182,8 @@ class EvalEnv(gym.Env):
         
 
     def _is_it_terminated(self):
-        terminated = 1
-
-        if not np.all(self.collision == 0.0):
-            terminated = 2
-            return terminated
-        
-        for i in range(len(self.particles)):
-            if self.particles[i].last_timestep_dist > 0.01:
-                terminated = 0
-                return terminated
-
-        return terminated
+        return all(particle.last_timestep_dist <= 0.01 for particle in self.particles)
 
 
-    def _is_it_truncated(self):
-        truncated = False
-
-        if self.time_step >= self.max_timesteps:
-            truncated = True
-        
-        return truncated
+    def _is_it_truncated(self):        
+        return np.any(self.collision != 0.0) or self.time_step >= self.max_timesteps
