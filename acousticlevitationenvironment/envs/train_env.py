@@ -5,8 +5,8 @@ import gymnasium as gym
 
 from typing import Optional, Tuple, Any, List, Dict
 
-from acousticlevitationenvironment.particles import particle_slim, target_slim
-from acousticlevitationenvironment.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing
+from acousticlevitationgym.particles import particle_slim, target_slim
+from acousticlevitationgym.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing
 
 
 class TrainEnv(gym.Env):
@@ -189,20 +189,17 @@ class TrainEnv(gym.Env):
         # 将发生碰撞的粒子的 multiplicative_factor 设为 0
         multiplicative_factor[self.collision != 0.0] = 0.0
         # 计算临时奖励
-        temp = self._calculate_reward()
+        temp = self.reward_function()
         # 根据 multiplicative_factor 调整 temp
         temp *= multiplicative_factor
         # 计算每个粒子的奖励
         reward = (1 - self.collision) * np.sum(temp)
 
-        if_terminated = self._is_it_terminated()
-        if if_terminated == 1:
-            reward += 20.0
-            terminated = True
-        else:
-            terminated = False
-
+        terminated = self._is_it_terminated()
         truncated = self._is_it_truncated()
+        
+        if terminated:
+            reward += 20.0
 
         return self._get_obs(), reward, terminated, truncated, self._info
     
@@ -222,14 +219,7 @@ class TrainEnv(gym.Env):
                     self.collision[j] = 1.0
     
 
-    def _calculate_reward(self):
-
-        reward = self.reward_function_1()
-        
-        return reward
-    
-
-    def reward_function_1(self):
+    def reward_function(self):
         reward = np.zeros(self.n_particles)
 
         for i, particle in enumerate(self.particles):
@@ -256,20 +246,8 @@ class TrainEnv(gym.Env):
 
 
     def _is_it_terminated(self):
-        terminated = 1
-
-        for i in range(len(self.particles)):
-            if self.particles[i].last_timestep_dist > (2*self.particle_radius):
-                terminated = 0
-                return terminated
-
-        return terminated
+        return all(particle.last_timestep_dist <= 2*self.particle_radius for particle in self.particles)
 
 
-    def _is_it_truncated(self):
-        truncated = False
-
-        if self.time_step >= self.max_timesteps:
-            truncated = True
-        
-        return truncated
+    def _is_it_truncated(self):        
+        return self.time_step >= self.max_timesteps

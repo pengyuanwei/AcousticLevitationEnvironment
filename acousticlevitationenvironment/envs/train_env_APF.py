@@ -5,8 +5,8 @@ import gymnasium as gym
 
 from typing import Optional, Tuple, Any, List, Dict
 
-from acousticlevitationenvironment.particles import particle_slim, target_slim
-from acousticlevitationenvironment.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing, check_and_correct_positions
+from acousticlevitationgym.particles import particle_slim, target_slim
+from acousticlevitationgym.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing, check_and_correct_positions
 
 
 class TrainEnvAPF(gym.Env):
@@ -260,15 +260,8 @@ class TrainEnvAPF(gym.Env):
 
 
     def _is_it_terminated(self):
-        for i in range(len(self.particles)):
-            if self.particles[i].last_timestep_dist > (2*self.particle_radius):
-                return False
-
-        return True
+        return all(particle.last_timestep_dist <= 2*self.particle_radius for particle in self.particles)
 
 
-    def _is_it_truncated(self):
-        if self.time_step >= self.max_timesteps:
-            return True
-        
-        return False
+    def _is_it_truncated(self):        
+        return self.time_step >= self.max_timesteps
