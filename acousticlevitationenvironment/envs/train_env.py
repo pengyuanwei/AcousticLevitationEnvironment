@@ -246,7 +246,7 @@ class TrainEnv(gym.Env):
 
 
     def _is_it_terminated(self):
-        return all(particle.last_timestep_dist <= 2*self.particle_radius for particle in self.particles)
+        return np.all(self.collision == 0.0) and all(particle.last_timestep_dist <= self.particle_radius for particle in self.particles)
 
 
     def _is_it_truncated(self):        
