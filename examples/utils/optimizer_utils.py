@@ -172,7 +172,7 @@ def calculate_mean_v_v2(dx, t_set):
     assert t_set.shape[0] == dx.shape[0] + 1
 
     # 使用广播直接计算平均速度
-    # # t_set[1:] 的形状是 (n_segments,)，广播到 (n_segments, n_particles)
+    # t_set[1:] 的形状是 (n_segments,)，广播到 (n_segments, n_particles)
     velocities_set = dx / t_set[1:, None]  
 
     return velocities_set

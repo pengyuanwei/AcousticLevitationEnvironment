@@ -8,7 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.s_curve import *
 
 
-# Modified based on the kinodynamics_analysis_2.py: integrate S curve
+# Modified based on the kinodynamics_analysis_2.py: integrate velocity S-curve
 
 
 if __name__ == '__main__':

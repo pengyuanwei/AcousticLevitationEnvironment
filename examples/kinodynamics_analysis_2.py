@@ -7,7 +7,7 @@ from examples.utils.acoustic_utils import *
 from examples.utils.optimizer_utils import *
 
 
-# Modified based on the kinodynamics_analysis_1.py
+# Modified based on the kinodynamics_analysis_1.py: 优化代码结构，提高可读性和效率
 
 
 if __name__ == '__main__':
@@ -46,10 +46,10 @@ if __name__ == '__main__':
         t_set = np.concatenate([[0.0], delta_time], axis=0)
         #print(t_set)
 
-        dx = calculate_dx_v2(split_data[:, :, 2:])
-        dx = np.transpose(dx, (1, 0))
-        v_mean = calculate_mean_v_v2(dx, t_set)
-        #print(v_mean)
+        # dx = calculate_dx_v2(split_data[:, :, 2:])
+        # dx = np.transpose(dx, (1, 0))
+        # v_mean = calculate_mean_v_v2(dx, t_set)
+        # print(v_mean)
 
         # 对第一段和最后一段进行插值处理
         # 先修改第一段和最后一段的dt
@@ -85,21 +85,21 @@ if __name__ == '__main__':
 
 
         new_dx = calculate_dx(new_key_points)
-        print(dx, '\n')
+        print(new_dx, '\n')
         v_mean = calculate_mean_v(new_dx, new_t_set)
         print(v_mean, '\n')
         accelerations = calculate_accelerations(v_mean, new_t_set)
         print(accelerations)
 
 
-        # new_split_data_numpy = np.zeros((n_particles, new_key_points.shape[0], 5))
-        # for i in range(new_key_points.shape[0]):
-        #     new_split_data_numpy[:, i, 0] = i
+        new_split_data_numpy = np.zeros((n_particles, new_key_points.shape[0], 5))
+        for i in range(new_key_points.shape[0]):
+            new_split_data_numpy[:, i, 0] = i
 
-        # for i in range(n_particles):
-        #     new_split_data_numpy[i, :, 1] = new_t_set
+        for i in range(n_particles):
+            new_split_data_numpy[i, :, 1] = new_t_set
 
-        # new_split_data_numpy[:, :, 2:] = np.transpose(new_key_points, (1, 0, 2))
+        new_split_data_numpy[:, :, 2:] = np.transpose(new_key_points, (1, 0, 2))
 
 
         # # # 保存修改后的轨迹
