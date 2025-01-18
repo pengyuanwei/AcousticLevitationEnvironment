@@ -144,7 +144,6 @@ if __name__ == '__main__':
                         split_data[:, m, 2:] = np.copy(candidate_solutions[:, sorted_indices[i], :])
                         break
 
-
         # 计算时间序列，要求每个片段的最大速度不超过最大速度（0.1m/s）
         max_displacements = max_displacement_v2(split_data[:, :, 2:])
         diff_time = max_displacements / 0.1
@@ -154,6 +153,7 @@ if __name__ == '__main__':
         # 计算累计时间并保存
         total_time = np.cumsum(rounded_diff_time)
         split_data[:, 1:, 1] = total_time
+
 
         end_time = time.time()  # 记录当前循环的结束时间
         elapsed_time = end_time - start_time  # 计算当前循环的运行时间

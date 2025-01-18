@@ -103,7 +103,6 @@ def eval_policy(agent, eval_env, n_particles, eval_episodes, max_timesteps, seed
 
 
 if __name__ == "__main__":
-
     save_dir = './experiments/experiment_205'
     n_particles = 6
     
@@ -125,7 +124,6 @@ if __name__ == "__main__":
     actor_lr = 2e-4
     critic_lr = 4e-4
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
     print("The device is:", device)
 
     env_name = "acoustic_levitation_environment_v2/TrainEnv-v0"
