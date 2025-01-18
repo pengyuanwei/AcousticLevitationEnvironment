@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
         # 对第一段和最后一段进行插值处理
         # 修改第一段和最后一段的dt: 每个segment的dt为确保所有粒子速度小于等于0.1m/s的最大时间
-        # dt_new = 20 * s = 20 * (0.1 * dt) = 2 * dt
+        # 变加速直线运动，已知：dt_new = 20 * s, 则有：dt_new = 20 * (0.1 * dt) = 2 * dt
         delta_time[0] *= 2
         delta_time[-1] *= 2
 
@@ -56,7 +56,6 @@ if __name__ == '__main__':
         )
         # 可视化所有粒子
         visualize_all_particles(t, accelerations, velocities, trajectories)
-
 
 
         # # # 保存修改后的轨迹

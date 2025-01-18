@@ -8,49 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.s_curve import *
 
 
-# Modified based on the kinodynamics_analysis_1.py: 优化代码结构，提高可读性和效率
-
-
-def calculate_kinematic_quantities(segment, dt_set):
-    '''
-    输入：
-        segment: N个粒子的等长轨迹 (N, lengths, 3)
-        dt_set: keypoints 与前一个 keypoint 的时间步长 (lengths, )
-    输出：
-        t: 时间数组
-        velocities: (N, len(t)) 每个粒子随时间的速度
-        accelerations: (N, len(t)) 每个粒子随时间的加速度
-        trajectories: (N, len(t), 3) 每个粒子的轨迹
-    '''
-    # 累积时间步长以获取时间数组
-    t = np.cumsum(dt_set)
-
-    # 计算轨迹
-    trajectories = segment  # 轨迹已经由输入提供，直接赋值
-
-    # 计算速度
-    # 使用中央差分法计算速度：v[i] = (x[i+1] - x[i-1]) / (2 * dt)
-    velocities = np.zeros((segment.shape[0], segment.shape[1], 3))
-    for i in range(segment.shape[0]):
-        for j in range(1, segment.shape[1] - 1):
-            dt = dt_set[j] + dt_set[j - 1]
-            velocities[i, j] = (segment[i, j + 1] - segment[i, j - 1]) / dt
-        # 处理边界情况
-        velocities[i, 0] = (segment[i, 1] - segment[i, 0]) / dt_set[0]
-        velocities[i, -1] = (segment[i, -1] - segment[i, -2]) / dt_set[-1]
-
-    # 计算加速度
-    # 使用中央差分法计算加速度：a[i] = (v[i+1] - v[i-1]) / (2 * dt)
-    accelerations = np.zeros((segment.shape[0], segment.shape[1], 3))
-    for i in range(segment.shape[0]):
-        for j in range(1, segment.shape[1] - 1):
-            dt = dt_set[j] + dt_set[j - 1]
-            accelerations[i, j] = (velocities[i, j + 1] - velocities[i, j - 1]) / dt
-        # 处理边界情况
-        accelerations[i, 0] = (velocities[i, 1] - velocities[i, 0]) / dt_set[0]
-        accelerations[i, -1] = (velocities[i, -1] - velocities[i, -2]) / dt_set[-1]
-
-    return t, velocities, accelerations, trajectories
+# Modified based on the kinodynamics_analysis_2.py: 原轨迹的速度曲线
 
 
 if __name__ == '__main__':
@@ -82,18 +40,23 @@ if __name__ == '__main__':
         # When axis=2: keypoints_id, time, x, y, z
         split_data = data_numpy.reshape(-1, paths_length, 5)
 
-        # 计算时间变化量（差分）
         # split_data_numpy[:,:,1] 是时间累加值（时间列）
+        # 计算时间变化量（差分）
         delta_time = np.diff(split_data[0, :, 1], axis=0)
-        
-        # 对第一段和最后一段进行插值处理
-        # 修改第一段和最后一段的dt: 每个segment的dt为确保所有粒子速度小于等于0.1m/s的最大时间
-        # 匀加速直线运动：dt_new =  s / (0.5 * v_max) = 20 * s = 20 * v_max * dt = 2 * dt
-        delta_time[0] *= 2
-        delta_time[-1] *= 2
-
         # 保留初始时间点为0，补齐成与原数据相同的形状
         t_set = np.concatenate([[0.0], delta_time], axis=0)
+        #print(t_set)
+
+        # dx = calculate_dx_v2(split_data[:, :, 2:])
+        # dx = np.transpose(dx, (1, 0))
+        # v_mean = calculate_mean_v_v2(dx, t_set)
+        # print(v_mean)
+
+        # 对第一段和最后一段进行插值处理
+        # 先修改第一段和最后一段的dt
+        t_set[1] *= 2
+        t_set[-1] *= 2
+        #print(t_set)
 
         new_t_set = np.zeros(paths_length + 18)
         # 前10个元素设置为 t_set[1] / 10
@@ -127,11 +90,8 @@ if __name__ == '__main__':
         new_split_data_numpy[:, :, 2:] = np.transpose(new_key_points, (1, 0, 2))
 
 
-        # 计算速度和加速度曲线
-        t, velocities, accelerations, trajectories = calculate_kinematic_quantities(
-            new_split_data_numpy[:, :10, 2:], new_t_set[:10]
-        )
         # 可视化所有粒子
+        t, velocities, accelerations, trajectories = calculate_kinematic_quantities(new_split_data_numpy[:, :10, 2:], new_t_set[:10])
         visualize_all_particles(t, accelerations, velocities, new_split_data_numpy[:, :10, 2:])
 
 
