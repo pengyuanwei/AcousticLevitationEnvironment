@@ -8,49 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.s_curve import *
 
 
-# Modified based on the kinodynamics_analysis_2.py: keypoints 之间进行匀速直线运动
-
-
-def calculate_kinematic_quantities(segment, dt_set):
-    '''
-    输入：
-        segment: N个粒子的等长轨迹 (N, lengths, 3)
-        dt_set: keypoints 与前一个 keypoint 的时间步长 (lengths, )
-    输出：
-        t: 时间数组
-        velocities: (N, len(t)) 每个粒子随时间的速度
-        accelerations: (N, len(t)) 每个粒子随时间的加速度
-        trajectories: (N, len(t), 3) 每个粒子的轨迹
-    '''
-    # 累积时间步长以获取时间数组
-    t = np.cumsum(dt_set)
-
-    # 计算轨迹
-    trajectories = segment  # 轨迹已经由输入提供，直接赋值
-
-    # 计算速度
-    # 使用中央差分法计算速度：v[i] = (x[i+1] - x[i-1]) / (2 * dt)
-    velocities = np.zeros((segment.shape[0], segment.shape[1], 3))
-    for i in range(segment.shape[0]):
-        for j in range(1, segment.shape[1] - 1):
-            dt = dt_set[j] + dt_set[j - 1]
-            velocities[i, j] = (segment[i, j + 1] - segment[i, j - 1]) / dt
-        # 处理边界情况
-        velocities[i, 0] = (segment[i, 1] - segment[i, 0]) / dt_set[0]
-        velocities[i, -1] = (segment[i, -1] - segment[i, -2]) / dt_set[-1]
-
-    # 计算加速度
-    # 使用中央差分法计算加速度：a[i] = (v[i+1] - v[i-1]) / (2 * dt)
-    accelerations = np.zeros((segment.shape[0], segment.shape[1], 3))
-    for i in range(segment.shape[0]):
-        for j in range(1, segment.shape[1] - 1):
-            dt = dt_set[j] + dt_set[j - 1]
-            accelerations[i, j] = (velocities[i, j + 1] - velocities[i, j - 1]) / dt
-        # 处理边界情况
-        accelerations[i, 0] = (velocities[i, 1] - velocities[i, 0]) / dt_set[0]
-        accelerations[i, -1] = (velocities[i, -1] - velocities[i, -2]) / dt_set[-1]
-
-    return t, velocities, accelerations, trajectories
+# Modified based on the kinodynamics_analysis_2.py: keypoints之间进行匀速直线运动
 
 
 if __name__ == '__main__':
@@ -85,20 +43,19 @@ if __name__ == '__main__':
         # 计算时间变化量（差分）
         # split_data_numpy[:,:,1] 是时间累加值（时间列）
         delta_time = np.diff(split_data[0, :, 1], axis=0)
-        
-        # 对第一段和最后一段进行插值处理
-        # 修改第一段和最后一段的dt: 每个segment的dt为确保所有粒子速度小于等于0.1m/s的最大时间
-        # 匀加速直线运动，可知：v_max = 2 * s / t
-        # 轨迹原为匀速直线运动，有：s = v_max * dt
-        # 则有：dt_new =  2 * s / v_max = 20 * s = 20 * (v_max * dt) = 2 * dt
-        delta_time[0] *= 2
-        delta_time[-1] *= 2
 
-        # 处理第一个片段
+        # 处理第一个片段：对第一段进行插值处理
         start = split_data[:, 0, 2:]
         end = split_data[:, 1, 2:]
-        total_time = delta_time[0]
         dt = 32.0/10000
+
+        # 修改第一段的delta_time
+        # 在理想模型中，存在一个瞬间的脉冲加速度。然而，在现实中，速度变化需要一个有限时间dt。
+        # 理想: s = v_max * T
+        # 现实: s = 0.5 * a * dt**2 + v_max * (T' - dt)
+        # 则有: T' = T + 0.5 * dt
+        delta_time[0] += (1/2) * dt
+        total_time = delta_time[0]
 
         # 粒子数量
         N = start.shape[0]
@@ -107,9 +64,10 @@ if __name__ == '__main__':
         L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
         direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
 
-        # 加速度和最大速度
-        a = 2 * L / total_time ** 2  # (N,)
-        v_max = 2 * L / total_time  # (N,)
+        # 末速度，瞬时加速度，加速阶段位移
+        v_max = L / (total_time - (1/2) * dt)  # (N,)
+        a_max = L / ((total_time - (1/2) * dt) * dt)  # (N,)
+        s_1 = (1/2) * a_max * dt**2
 
         # 时间数组
         t = np.arange(0, total_time, dt)
@@ -122,13 +80,21 @@ if __name__ == '__main__':
 
         # 时间点对应的加速度、速度和位移
         for i, ti in enumerate(t):
-            if ti <= total_time:
-                # 匀加速阶段
-                v = a * ti  # (N,)
-                s = (1/2) * a * ti**2  # (N,)
+            if i == 0:
+                # 静止阶段
+                v = 0.0
+                a = 0.0
+                s = 0.0
+            elif i == 1:
+                # 瞬时加速
+                v = v_max
+                a = a_max
+                s = s_1             
             else:
-                v = v_max  # 最大速度保持
-                s = L  # 终点
+                # 匀速阶段
+                v = v_max  # (N,)
+                a = 0.0
+                s = s_1 + v_max * (ti - (1/2) * dt)  # (N,)
 
             accelerations[:, i] = a
             velocities[:, i] = v
@@ -141,49 +107,6 @@ if __name__ == '__main__':
         visualize_all_particles(t, accelerations, velocities, trajectories)
 
 
-        # # 保留初始时间点为0，补齐成与原数据相同的形状
-        # t_set = np.concatenate([[0.0], delta_time], axis=0)
-
-        # new_t_set = np.zeros(paths_length + 18)
-        # # 前10个元素设置为 t_set[1] / 10
-        # new_t_set[1:11] = t_set[1] / 10
-        # # 后10个元素设置为 t_set[-1] / 10
-        # new_t_set[-10:] = t_set[-1] / 10
-        # # 中间部分赋值为 t_set 的第2个到倒数第2个元素
-        # new_t_set[11:-10] = t_set[2:-1]
-        # #print(new_t_set)
-
-
-        # # 对坐标key_points进行插值处理
-        # key_points = np.transpose(split_data[:, :, 2:], (1, 0, 2))
-        # new_key_points = np.zeros((paths_length + 18, n_particles, 3))
-        # new_key_points[0] = key_points[0]
-        # new_key_points[11:-10] = key_points[2:-1]
-
-
-        # coordinate_changes_0 = (key_points[1] - key_points[0]) / 100
-        # for i in range(1, 11):
-        #     new_key_points[i] = key_points[0] + coordinate_changes_0 * (i**2)
-
-        # coordinate_changes_1 = (key_points[-1] - key_points[-2]) / 100
-        # for i in range(1, 11):
-        #     new_key_points[-11+i] = key_points[-2] + coordinate_changes_1 * (20 * i - i**2)
-
-
-        # new_split_data_numpy = np.zeros((n_particles, paths_length + 18, 5))
-        # new_split_data_numpy[:, :, 0] = np.arange(paths_length + 18)
-        # new_split_data_numpy[:, :, 1] = new_t_set
-        # new_split_data_numpy[:, :, 2:] = np.transpose(new_key_points, (1, 0, 2))
-
-
-        # # 计算速度和加速度曲线
-        # t, velocities, accelerations, trajectories = calculate_kinematic_quantities(
-        #     new_split_data_numpy[:, :10, 2:], new_t_set[:10]
-        # )
-        # # 可视化所有粒子
-        # visualize_all_particles(t, accelerations, velocities, trajectories)
-
-
-        # # # 保存修改后的轨迹
-        # # file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
-        # # save_path_v2(file_path, n_particles, new_split_data_numpy)
+        # # 保存修改后的轨迹
+        # file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
+        # save_path_v2(file_path, n_particles, new_split_data_numpy)
