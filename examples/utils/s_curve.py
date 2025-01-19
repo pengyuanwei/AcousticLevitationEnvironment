@@ -25,7 +25,7 @@ def smooth_acceleration_trajectories(start: np.array, end: np.array, total_time:
 
     # 最大加速度和最大速度
     a_max = 4 * L / total_time**2  # (N,)
-    v_max = 0.5 * a_max * total_time  # (N,)
+    v_max = 2 * L / total_time  # (N,)
 
     # 时间数组
     t = np.arange(0, total_time, dt)

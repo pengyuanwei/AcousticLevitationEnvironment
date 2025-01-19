@@ -46,7 +46,9 @@ if __name__ == '__main__':
 
         # 对第一段和最后一段进行插值处理
         # 修改第一段和最后一段的dt: 每个segment的dt为确保所有粒子速度小于等于0.1m/s的最大时间
-        # 变加速直线运动，已知：dt_new = 20 * s, 则有：dt_new = 20 * (0.1 * dt) = 2 * dt
+        # S曲线变加速直线运动，可知：v_max = 2 * s / t
+        # 轨迹原为匀速直线运动，有：s = v_max * dt
+        # 则有：dt_new = 2 * s / v_max = 20 * s = 20 * (v_max * dt) = 2 * dt
         delta_time[0] *= 2
         delta_time[-1] *= 2
 
