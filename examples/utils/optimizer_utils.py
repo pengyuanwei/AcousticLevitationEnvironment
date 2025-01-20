@@ -110,28 +110,35 @@ def generate_solutions(n_particles, split_data, max_gorkov_idx, levitator):
     return candidate_solutions, sorted_indices, sorted_solutions_max_gorkov
 
 
-def calculate_dx(segment):
-    # segment 是形状 (num_particle, lengths, 3)
-
+def calculate_displacements(segment):
+    '''
+    输入：
+        segment: 形状 (num_particle, n_keypoints, 3)
+    输出：
+        displacements: 形状 (num_particle, n_keypoints - 1)
+    '''
     # 计算连续时间段的坐标差异
-    displacement_diff = segment[:, 1:, :] - segment[:, :-1, :]  # 形状 (num_particle, num, 3)
+    displacement_diff = segment[:, 1:, :] - segment[:, :-1, :]  # 形状 (num_particle, lengths - 1, 3)
     
     # 计算欧几里得距离（位移）
-    displacements = np.linalg.norm(displacement_diff, axis=2)  # 形状 (num_particle, num)
+    displacements = np.linalg.norm(displacement_diff, axis=2)
 
     # 输出每个时间段的所有位移
     return displacements
 
 
-def calculate_velocities(dx, t_set):
-    # dx: (n_segments, n_particles)
-    # t_set: (n_keypoints,)
-    # 确保 t_set 的长度与 n_segments+1 对应
-    assert t_set.shape[0] == dx.shape[0] + 1
+def calculate_velocities(dx_set, dt_set):
+    '''
+    输入：
+        dx_set: (n_keypoints - 1, n_particles)
+        dt_set: (n_keypoints - 1,)
+    '''
+    # 确保 t_set 的长度与 dx_set 对应    
+    assert dt_set.shape[0] == dx_set.shape[0]
 
     # 使用广播直接计算平均速度
-    # t_set[1:] 的形状是 (n_segments,)，广播到 (n_segments, n_particles)
-    velocities_set = dx / t_set[1:, None]  
+    # dt_set[:] 的形状是 (n_segments,)，广播到 (n_segments, n_particles)
+    velocities_set = dx_set / dt_set[:, None]  
 
     return velocities_set
 

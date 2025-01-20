@@ -44,7 +44,13 @@ if __name__ == '__main__':
         # split_data_numpy[:,:,1] 是时间累加值（时间列）
         delta_time = np.diff(split_data[0, :, 1], axis=0)
 
-        # 处理第一段直线路径
+        # # 计算每个粒子每一段的位移和速度
+        # displacements = calculate_displacements(split_data[:, :, 2:])  # (num_particle, n_keypoints - 1)
+        # dx = np.transpose(displacements, (1, 0))  # (n_keypoints - 1, n_particles)
+        # velocities_set = calculate_velocities(dx, delta_time)
+
+
+        # 处理第一段直线路径 ################################################################################
         # 修改第一段的delta_time: 确保所有粒子的速度均<=0.1m/s
         # S曲线变加速直线运动，可知：v_max = 2 * s / t
         # 轨迹原为匀速直线运动，有：s = v_max * dt
@@ -56,14 +62,66 @@ if __name__ == '__main__':
             split_data[:, 0, 2:], split_data[:, 1, 2:], delta_time[0], dt=32.0/10000
         )
 
-        # 处理第二段直线路径
+
+        # 处理第二段直线路径 ################################################################################
+        start = split_data[:, 1, 2:]
+        end = split_data[:, 2, 2:]
+        total_time = delta_time[1]
+        # 粒子数量
+        N = start.shape[0]
+
+        # 计算路径长度和方向
+        L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
+        direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
+
+        # 初速度
+        v_0 = velocities[:, -1]
+        print(v_0.shape)
+        print(L.shape)
+        # 最大加速度和最大速度
+        a_max = L / total_time  # (N,)
+        v_max = L / total_time  # (N,)
+
+        # # 时间数组
+        # t = np.arange(0, total_time, dt)
+        # num_steps = len(t)
+
+        # # 初始化结果数组
+        # accelerations = np.zeros((N, num_steps))
+        # velocities = np.zeros((N, num_steps))
+        # positions = np.zeros((N, num_steps))
+
+        # # 时间点对应的加速度、速度和位移
+        # for i, ti in enumerate(t):
+        #     if ti <= (total_time / 2):
+        #         # 加速阶段前半部分：加速度均匀增加
+        #         a = (2 * a_max * ti) / total_time  # (N,)
+        #         v = (a_max * ti**2) / total_time  # (N,)
+        #         s = (1/3) * (a_max * ti**3) / total_time  # (N,)
+        #     elif ti <= total_time:
+        #         # 加速阶段后半部分：加速度均匀减少
+        #         a = (-2 * a_max * ti) / total_time + 2 * a_max  # (N,)
+        #         v = (-1 * a_max * ti**2) / total_time + 2 * a_max * ti - (a_max * total_time) / 2  # (N,)
+        #         s = (-1/3) * (a_max * ti**3) / total_time + a_max * ti**2 - (1/2) * a_max * total_time * ti + (1/12) * a_max * total_time**2  # (N,)
+        #     else:
+        #         a = np.zeros(N)  # 全部置为 0
+        #         v = v_max  # 最大速度保持
+        #         s = L  # 终点
+
+        #     accelerations[:, i] = a
+        #     velocities[:, i] = v
+        #     positions[:, i] = s
+
+        # # 计算三维轨迹
+        # trajectories = positions[:, :, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
+
+
         
-        
 
-        # 可视化所有粒子
-        visualize_all_particles(t, accelerations, velocities, trajectories)
+        # # 可视化所有粒子
+        # visualize_all_particles(t, accelerations, velocities, trajectories)
 
 
-        # # # 保存修改后的轨迹
-        # # file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
-        # # save_path_v2(file_path, n_particles, new_split_data_numpy)
+        # # 保存修改后的轨迹
+        # file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
+        # save_path_v2(file_path, n_particles, new_split_data_numpy)
