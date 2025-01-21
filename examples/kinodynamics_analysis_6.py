@@ -8,7 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.s_curve import *
 
 
-# Modified based on the kinodynamics_analysis_3.py: 任意初始速度的S曲线速度计算
+# Modified based on the kinodynamics_analysis_5.py: 任意初始速度的S曲线速度计算，zoom时间序列，以确保最高速度<=0.1m/s
 
 
 if __name__ == '__main__':
@@ -80,6 +80,26 @@ if __name__ == '__main__':
         # 最大加速度和末速度
         a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
         v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
+
+
+        if np.any(v_2 > 0.1 + 1e-9):
+            t_upper_bound = 2 * L / v_0
+            t_lower_bound = 20 * L / (10 * v_0 + 1)
+
+            total_time = np.max(t_lower_bound)
+            #total_time = np.min(t_upper_bound)
+            a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
+            v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
+        
+        print(v_2)
+
+        if np.any(v_2 < 0.0):
+            # clip v_2 \in [0.0, +inf)
+            v_2 = np.clip(v_2, 0.0, np.inf)
+
+        print(v_2)
+
+
 
         # 时间数组
         t = np.arange(0, total_time, dt)
