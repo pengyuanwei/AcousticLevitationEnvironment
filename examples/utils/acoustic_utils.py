@@ -5,7 +5,7 @@ import os
 from scipy.spatial.distance import cdist
 
 from examples.utils.general_utils import *
-import examples.utils.Gorkov_new as Gorkov_new
+import examples.utils.phase_retrieval as phase_retrieval
 
 
 # Modified based on the calculate_gorkov_v2.py
@@ -566,7 +566,7 @@ def compute_delta_angles(front_keypoints, current_keypoints, back_keypoints, deg
     - front_keypoints: 形状为 (M, N, 3) 的 NumPy 数组
     - current_keypoints: 形状为 (M, N, 3) 的 NumPy 数组
     - back_keypoints: 形状为 (M, N, 3) 的 NumPy 数组
-    - degrees: 如果为 True，返回的角度以度为单位；否则以弧度为单位。
+    - degrees: 如果为 True, 返回的角度以度为单位；否则以弧度为单位。
 
     返回：
     - delta_angles: 形状为 (M, N) 的 NumPy 数组，表示角度变化
@@ -606,12 +606,12 @@ def calculate_gorkov(key_points, n_particles, transducer, delta, b, num_transduc
             points[j] = [transformed_coordinate[j][i][0], transformed_coordinate[j][i][1], transformed_coordinate[j][i][2]]
 
         points1 = torch.tensor(points)
-        Ax2, Ay2, Az2 = Gorkov_new.surround_points(transducer, points1, delta)
+        Ax2, Ay2, Az2 = phase_retrieval.surround_points(transducer, points1, delta)
         Ax2 = Ax2.to(torch.complex64)
         Ay2 = Ay2.to(torch.complex64)
         Az2 = Az2.to(torch.complex64)
-        H = Gorkov_new.piston_model_new(transducer, points1).to(torch.complex64)
-        gorkov = Gorkov_new.wgs_new(H, Ax2, Ay2, Az2, b, num_transducer, k1, k2, 1)
+        H = phase_retrieval.piston_model(transducer, points1).to(torch.complex64)
+        gorkov = phase_retrieval.wgs_new(H, Ax2, Ay2, Az2, b, num_transducer, k1, k2, 1)
 
         gorkov_numpy = gorkov.numpy()
         

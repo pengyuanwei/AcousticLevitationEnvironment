@@ -4,7 +4,7 @@ import torch
 import time
 import os
 
-import examples.utils.Gorkov_new as Gorkov_new
+import examples.utils.phase_retrieval as phase_retrieval
 from examples.utils.general_utils import *
 from examples.utils.acoustic_utils import *
 from examples.utils.optimizer_utils import *

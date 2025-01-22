@@ -52,12 +52,19 @@ class top_bottom_setup():
 
 
     def wgs(self, A, Ax_sim, Ay_sim, Az_sim, b, n, K):
-        # When K=1, the WGS degenerate to the Naive.
+        '''
+        Inputs:
+            -A: piston model transmission matrix.
+            -K: iteration number.
+        Variables:
+            -ph: phase hologram.
+        '''
         AT = torch.conj(A).T
         b0 = b
         y = b
 
-        for kk in range(K):
+        # When K=1, the WGS degenerate to the Naive.
+        for _ in range(K):
             x = torch.matmul(AT, y)
             x = torch.divide(x, torch.abs(x))      
             y = torch.matmul(A, x)
@@ -71,7 +78,7 @@ class top_bottom_setup():
         return Ur
 
 
-    def piston_model_new(self, points):
+    def piston_model(self, points):
         m = points.shape[0]
         n = self.transducer.shape[0]
         k=2*math.pi/0.00865
@@ -96,18 +103,18 @@ class top_bottom_setup():
     def surround_points(self, points):
         d = torch.zeros(1,3)
         d[0,0] = self.delta
-        Ax = self.piston_model_new(points + d)
-        A_x = self.piston_model_new(points - d)
+        Ax = self.piston_model(points + d)
+        A_x = self.piston_model(points - d)
 
         d = torch.zeros(1,3)
         d[0,1] = self.delta
-        Ay = self.piston_model_new(points + d)
-        A_y = self.piston_model_new(points - d)
+        Ay = self.piston_model(points + d)
+        A_y = self.piston_model(points - d)
 
         d = torch.zeros(1,3)
         d[0,2] = self.delta
-        Az = self.piston_model_new(points + d)
-        A_z = self.piston_model_new(points - d)
+        Az = self.piston_model(points + d)
+        A_z = self.piston_model(points - d)
 
         Ax2 = (Ax - A_x)/(2*self.delta)
         Ay2 = (Ay - A_y)/(2*self.delta)
@@ -130,7 +137,7 @@ class top_bottom_setup():
             Ax2 = Ax2.to(torch.complex64)
             Ay2 = Ay2.to(torch.complex64)
             Az2 = Az2.to(torch.complex64)
-            H = self.piston_model_new(points1).to(torch.complex64)
+            H = self.piston_model(points1).to(torch.complex64)
             gorkov = self.wgs(H, Ax2, Ay2, Az2, self.b, self.num_transducer, 1)
 
             gorkov_numpy = gorkov.numpy()

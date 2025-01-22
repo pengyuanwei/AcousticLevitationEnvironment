@@ -5,7 +5,7 @@ from examples.utils.top_bottom_setup import top_bottom_setup
 from examples.utils.general_utils import *
 from examples.utils.acoustic_utils import *
 from examples.utils.optimizer_utils import *
-from examples.utils.s_curve import *
+from examples.utils.path_smoothing import *
 
 
 # Modified based on the kinodynamics_analysis_2.py: keypoints之间进行匀速直线运动，第一段的匀速直线

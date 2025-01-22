@@ -76,7 +76,7 @@ def generate_random_particles(N, space_range):
 
 
 # 可视化
-def visualize_all_particles(t, accelerations, velocities, trajectories, show_paths=False):
+def visualize_all_particles(t, accelerations, velocities, trajectories, jerks=None, show_paths=False):
     '''
     同时可视化所有粒子的加速度、速度和轨迹
     '''
@@ -84,22 +84,31 @@ def visualize_all_particles(t, accelerations, velocities, trajectories, show_pat
     colors = plt.cm.get_cmap('tab10', num_particles)  # 使用不同颜色绘制
 
     # 加速度和速度
-    fig, axs = plt.subplots(2, 1, figsize=(12, 10))
+    if jerks is not None:
+        fig, axs = plt.subplots(3, 1, figsize=(12, 10))
+    else:
+        fig, axs = plt.subplots(2, 1, figsize=(12, 10))
     for i in range(num_particles):
-        axs[0].plot(t, accelerations[i], label=f'Particle {i}', color=colors(i))
-        axs[1].plot(t, velocities[i], label=f'Particle {i}', color=colors(i))
+        axs[0].plot(t, velocities[i], label=f'Particle {i}', color=colors(i))
+        axs[1].plot(t, accelerations[i], label=f'Particle {i}', color=colors(i))
+        if jerks is not None:
+            axs[2].plot(t, jerks[i], label=f'Particle {i}', color=colors(i))
 
-    axs[0].set_title('Acceleration vs Time')
-    axs[0].set_xlabel('Time (s)')
-    axs[0].set_ylabel('Acceleration')
+    axs[0].set_title('Velocity vs Time')
+    axs[0].set_ylabel('Velocity')
     axs[0].legend()
     axs[0].grid()
 
-    axs[1].set_title('Velocity vs Time')
-    axs[1].set_xlabel('Time (s)')
-    axs[1].set_ylabel('Velocity')
+    axs[1].set_title('Acceleration vs Time')
+    axs[1].set_ylabel('Acceleration')
     axs[1].legend()
     axs[1].grid()
+
+    if jerks is not None:
+        axs[2].set_title('Jerk vs Time')
+        axs[2].set_ylabel('Jerk')
+        axs[2].legend()
+        axs[2].grid()
 
     # 三维轨迹
     if show_paths:
@@ -145,13 +154,11 @@ def smooth_trajectories_arbitrary_initial_velocity(start: np.array, end: np.arra
     a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
     v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
 
-
     # 修正时间以确保所有粒子速度<=0.1m/s
     if np.any(v_2 > 0.1 + 1e-9):
-        t_upper_bound = 2 * L / v_0
         t_lower_bound = 20 * L / (10 * v_0 + 1)
-
         total_time = np.max(t_lower_bound)
+        #t_upper_bound = 2 * L / v_0
         #total_time = np.min(t_upper_bound)
         a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
         v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
@@ -161,7 +168,6 @@ def smooth_trajectories_arbitrary_initial_velocity(start: np.array, end: np.arra
     v_0[mask] = 2 * L[mask] / total_time
     a_max[mask] = -4 * L[mask] / total_time**2
     v_2[mask] = 0.0
-
 
     # 时间数组
     t = np.arange(0, total_time, dt)
@@ -197,3 +203,99 @@ def smooth_trajectories_arbitrary_initial_velocity(start: np.array, end: np.arra
     trajectories = positions[:, :, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
 
     return t, accelerations, velocities, trajectories
+
+
+def uniformly_accelerated_with_arbitrary_initial_velocity(start: np.array, end: np.array, total_time: float, dt: float, velocities: np.array):
+    '''
+    输入：
+        start: (N, 3) 每个粒子的起点
+        end: (N, 3) 每个粒子的终点
+        total_time: 总时间（所有粒子相同）
+        dt: 时间步长
+    输出：
+        t: 时间数组
+        accelerations: (N, len(t)) 每个粒子随时间的加速度
+        velocities: (N, len(t)) 每个粒子随时间的速度
+        trajectories: (N, len(t), 3) 每个粒子的轨迹
+    '''
+    # 粒子数量
+    N = start.shape[0]
+
+    # 计算路径长度和方向
+    L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
+    direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
+
+    # 初速度
+    v_0 = velocities
+    # 加速度和末速度
+    a = 2 * (L - v_0 * total_time) / total_time ** 2  # (N,)
+    v_1 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
+
+    if np.any(v_1 > 0.1 + 1e-9):
+        t_lower_bound = 20 * L / (10 * v_0 + 1)
+        total_time = np.max(t_lower_bound)
+        #t_upper_bound = 2 * L / v_0
+        #total_time = np.min(t_upper_bound)
+        a = 2 * (L - v_0 * total_time) / total_time ** 2  # (N,)
+        v_1 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
+    
+    # 找出小于 0.0 的元素，并反向计算
+    mask = v_1 < 0.0
+    v_0[mask] = 2 * L[mask] / total_time
+    a[mask] = -2 * L[mask] / total_time**2
+    v_1[mask] = 0.0
+
+    # 时间数组
+    t = np.arange(0, total_time, dt)
+    num_steps = len(t)
+
+    # 初始化结果数组
+    accelerations = np.zeros((N, num_steps))
+    velocities = np.zeros((N, num_steps))
+    positions = np.zeros((N, num_steps))
+
+    # 时间点对应的加速度、速度和位移
+    for i, ti in enumerate(t):
+        if ti <= total_time:
+            # 匀加速阶段
+            v = v_0 + a * ti  # (N,)
+            s = v_0 * ti + (1/2) * a * ti**2  # (N,)
+        else:
+            v = v_1  # 最大速度保持
+            s = L  # 终点
+
+        accelerations[:, i] = a
+        velocities[:, i] = v
+        positions[:, i] = s
+
+    # 计算三维轨迹
+    trajectories = positions[:, :, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
+
+    return t, accelerations, velocities, trajectories
+
+
+def calculate_jerk(time_series, acceleration_data):
+    """
+    Calculate the Jerk for a given time series and acceleration data.
+
+    Parameters:
+    - time_series (array-like): An array of time points.
+    - acceleration_data (2D array-like): A 2D array where each row corresponds to a time point
+      and each column corresponds to an agent's acceleration.
+
+    Returns:
+    - jerk_data (2D numpy array): The calculated Jerk for each agent at each time point (except the first).
+    """
+    # Check that dimensions match
+    if len(time_series) != acceleration_data.shape[1]:
+        raise ValueError("The length of time_series must match the number of rows in acceleration_data.")
+
+    # Calculate time differences
+    dt = np.diff(time_series)
+    if np.any(dt <= 0):
+        raise ValueError("Time series must be strictly increasing.")
+
+    # Calculate Jerk: derivative of acceleration (da/dt)
+    jerk_data = np.diff(acceleration_data, axis=1) / dt[None, :]
+
+    return jerk_data

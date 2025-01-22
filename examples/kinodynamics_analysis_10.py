@@ -8,7 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.path_smoothing import *
 
 
-# Modified based on the kinodynamics_analysis_1.py: 优化代码结构，提高可读性和效率，第一段的匀加速直线
+# Modified based on the kinodynamics_analysis_8.py: 任意初始速度的匀加速直线运动计算，zoom时间序列，以确保最高速度<=0.1m/s
 
 
 if __name__ == '__main__':
@@ -44,57 +44,55 @@ if __name__ == '__main__':
         # split_data_numpy[:,:,1] 是时间累加值（时间列）
         delta_time = np.diff(split_data[0, :, 1], axis=0)
         
-        # 处理第一个片段：对第一段进行插值处理
+        # 平滑路径
         # 修改第一段的delta_time: 每个segment的dt为确保所有粒子速度小于等于0.1m/s的最大时间
         # 匀加速直线运动，可知：v_max = 2 * s / t
         # 轨迹原为匀速直线运动，有：s = v_max * dt
         # 则有：dt_new =  2 * s / v_max = 20 * s = 20 * (v_max * dt) = 2 * dt
         delta_time[0] *= 2
 
-        start = split_data[:, 0, 2:]
-        end = split_data[:, 1, 2:]
-        total_time = delta_time[0]
+        # 初始化
+        t = []
+        accelerations = []
+        velocities = []
+        trajectories = []
+
         dt = 32.0/10000
+        sub_initial_t = 0.0
+        sub_initial_v = np.zeros((8,))
 
-        # 粒子数量
-        N = start.shape[0]
+        # 计算速度S曲线
+        for i in range(split_data.shape[1]-1):
+            sub_t, sub_accelerations, sub_velocities, sub_trajectories = uniformly_accelerated_with_arbitrary_initial_velocity(
+                split_data[:, i, 2:], split_data[:, i+1, 2:], delta_time[i], dt=32.0/10000, velocities=sub_initial_v
+            )
 
-        # 计算路径长度和方向
-        L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
-        direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
+            sub_t += sub_initial_t
+            sub_initial_t = sub_t[-1] + dt
+            sub_initial_v = sub_velocities[:, -1]
 
-        # 加速度和最大速度
-        a = 2 * L / total_time ** 2  # (N,)
-        v_max = 2 * L / total_time  # (N,)
+            t.append(sub_t)
+            accelerations.append(sub_accelerations)
+            velocities.append(sub_velocities)
+            trajectories.append(sub_trajectories)            
 
-        # 时间数组
-        t = np.arange(0, total_time, dt)
-        num_steps = len(t)
+        # 将所有子数组沿 axis=1 拼接成一个总数组
+        sum_t = np.concatenate(t, axis=0)
+        sum_a = np.concatenate(accelerations, axis=1)
+        sum_v = np.concatenate(velocities, axis=1)
+        sum_traj = np.concatenate(trajectories, axis=1)
 
-        # 初始化结果数组
-        accelerations = np.zeros((N, num_steps))
-        velocities = np.zeros((N, num_steps))
-        positions = np.zeros((N, num_steps))
+        print(sum_t.shape)
+        print(sum_a.shape)
 
-        # 时间点对应的加速度、速度和位移
-        for i, ti in enumerate(t):
-            if ti <= total_time:
-                # 匀加速阶段
-                v = a * ti  # (N,)
-                s = (1/2) * a * ti**2  # (N,)
-            else:
-                v = v_max  # 最大速度保持
-                s = L  # 终点
-
-            accelerations[:, i] = a
-            velocities[:, i] = v
-            positions[:, i] = s
-
-        # 计算三维轨迹
-        trajectories = positions[:, :, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
+        sum_jerk = calculate_jerk(sum_t, sum_a)
+        zero_array = np.zeros((sum_jerk.shape[0], 1))
+        print(zero_array.shape)
+        sum_jerk = np.concatenate([zero_array, sum_jerk], axis=1)
+        print(sum_jerk.shape)
 
         # 可视化所有粒子
-        visualize_all_particles(t, accelerations, velocities, trajectories)
+        visualize_all_particles(sum_t, sum_a, sum_v, sum_traj, jerks=sum_jerk)
 
 
         # # 保存修改后的轨迹

@@ -14,8 +14,7 @@ def create_board(N, z):
     return trans_pos
 
 
-def piston_model_new(transducers, points):
-    
+def piston_model(transducers, points):
     m = points.shape[0]
     n = transducers.shape[0]
     k=2*math.pi/0.00865
@@ -46,13 +45,43 @@ def forward_full_gorkov(ph,A,Ax,Ay,Az,k1,k2):
     return U, p, px, py, pz
 
 
-def wgs_new(A,Ax_sim,Ay_sim,Az_sim,b,n,k1,k2,K):
+def surround_points(transducer, points, delta):
+    d = torch.zeros(1,3)
+    d[0,0] = delta
+    Ax = piston_model(transducer, points + d)
+    A_x = piston_model(transducer, points - d)
+
+    d = torch.zeros(1,3)
+    d[0,1] = delta
+    Ay = piston_model(transducer, points + d)
+    A_y = piston_model(transducer, points - d)
+
+    d = torch.zeros(1,3)
+    d[0,2] = delta
+    Az = piston_model(transducer, points + d)
+    A_z = piston_model(transducer, points - d)
+
+    Ax2 = (Ax - A_x)/(2*delta)
+    Ay2 = (Ay - A_y)/(2*delta)
+    Az2 = (Az - A_z)/(2*delta)
+    
+    return Ax2, Ay2, Az2
+
+
+def wgs_new(A, Ax_sim, Ay_sim, Az_sim, b, n, k1, k2, K):
+    '''
+    Inputs:
+        -A: piston model transmission matrix.
+        -b: complex acoustic pressure at points.
+        -K: iteration number.
+    Variables:
+        -ph: phase hologram.
+    '''
     AT = torch.conj(A).T
     b0 = b
     y = b
 
-    for kk in range(K):
-        
+    for _ in range(K):
         x = torch.matmul(AT, y)
         x = torch.divide(x, torch.abs(x))      
         y = torch.matmul(A, x)
@@ -66,39 +95,16 @@ def wgs_new(A,Ax_sim,Ay_sim,Az_sim,b,n,k1,k2,K):
     return Ur
 
 
-def surround_points(transducer, points, delta):
-    d = torch.zeros(1,3)
-    d[0,0] = delta
-    Ax = piston_model_new(transducer, points + d)
-    A_x = piston_model_new(transducer, points - d)
-
-    d = torch.zeros(1,3)
-    d[0,1] = delta
-    Ay = piston_model_new(transducer, points + d)
-    A_y = piston_model_new(transducer, points - d)
-
-    d = torch.zeros(1,3)
-    d[0,2] = delta
-    Az = piston_model_new(transducer, points + d)
-    A_z = piston_model_new(transducer, points - d)
-
-    Ax2 = (Ax - A_x)/(2*delta)
-    Ay2 = (Ay - A_y)/(2*delta)
-    Az2 = (Az - A_z)/(2*delta)
-    
-    return Ax2, Ay2, Az2
-
-
-"""
-Function to find phases of transducers to create a control point using Naive.
-Inputs:
-   -A: piston model transmission matrix.
-   -b: complex acoustic pressure at points.
-Variables:
-   -x: complex acoustic pressure at transducers.
-   -y: complex acoustic pressure at points.
-"""
 def naive(A, b):
+    """
+    Function to find phases of transducers to create a control point using Naive.
+    Inputs:
+        -A: piston model transmission matrix.
+        -b: complex acoustic pressure at points.
+    Variables:
+        -x: complex acoustic pressure at transducers.
+        -y: complex acoustic pressure at points.
+    """
     AT = torch.conj(A).T
     x = torch.matmul(AT, b)
     x = torch.divide(x, torch.abs(x))
@@ -106,16 +112,16 @@ def naive(A, b):
     return (x, y)
 
 
-"""
-Function to calculate Gor'kov potential at one given location.
-Inputs:
-   -point: location of point in 3D.
-   -transducers: location of transducers in 3D.
-   -transducer_values: complex acoustic pressures of transducers.
-Output:
-   -Gor'kov potential at point
-"""
 def gorkov_potential(points, transducers, transducer_values):
+    """
+    Function to calculate Gor'kov potential at one given location.
+    Inputs:
+        -point: location of point in 3D.
+        -transducers: location of transducers in 3D.
+        -transducer_values: complex acoustic pressures of transducers.
+    Output:
+        -Gor'kov potential at point
+    """
     l=.00865
     k=2*np.pi/l
 
@@ -139,7 +145,7 @@ def gorkov_potential(points, transducers, transducer_values):
         point_mz = [point[0],point[1],point[2]-delta]
         point_pz = [point[0],point[1],point[2]+delta]
         points = [point_mx, point_px, point_my, point_py, point_mz, point_pz, point]
-        H = piston_model_new(transducers, points)
+        H = piston_model(transducers, points)
         H = H.to(torch.complex64)
         y = np.matmul(H,np.asarray(transducer_values))
 
@@ -151,4 +157,3 @@ def gorkov_potential(points, transducers, transducer_values):
         potential = k1*amplitude[6]**2 - k2*(x_component**2 + y_component**2 + z_component**2)
         potentials.append(potential)
     return(potentials)
-

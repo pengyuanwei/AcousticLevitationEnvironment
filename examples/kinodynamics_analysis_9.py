@@ -5,7 +5,7 @@ from examples.utils.top_bottom_setup import top_bottom_setup
 from examples.utils.general_utils import *
 from examples.utils.acoustic_utils import *
 from examples.utils.optimizer_utils import *
-from examples.utils.s_curve import *
+from examples.utils.path_smoothing import *
 
 
 # Modified based on the kinodynamics_analysis_6.py: 任意初始速度的S曲线速度计算，zoom时间序列，以确保最高速度<=0.1m/s
@@ -68,47 +68,34 @@ if __name__ == '__main__':
         sub_initial_v = np.zeros((8,))
 
         # 计算速度S曲线
-        sub_t, sub_accelerations, sub_velocities, sub_trajectories = smooth_trajectories_arbitrary_initial_velocity(
-            split_data[:, 0, 2:], split_data[:, 1, 2:], delta_time[0], dt=dt, velocities=sub_initial_v
-        )
+        for i in range(split_data.shape[1]-1):
+            sub_t, sub_accelerations, sub_velocities, sub_trajectories = smooth_trajectories_arbitrary_initial_velocity(
+                split_data[:, i, 2:], split_data[:, i+1, 2:], delta_time[i], dt=dt, velocities=sub_initial_v
+            )
 
-        sub_t += sub_initial_t
-        sub_initial_t = sub_t[-1] + dt
-        sub_initial_v = sub_velocities[:, -1]
+            sub_t += sub_initial_t
+            sub_initial_t = sub_t[-1] + dt
+            sub_initial_v = sub_velocities[:, -1]
 
-        t.append(sub_t)
-        accelerations.append(sub_accelerations)
-        velocities.append(sub_velocities)
-        trajectories.append(sub_trajectories)
-
-        # 处理第二段直线路径
-        sub_t, sub_accelerations, sub_velocities, sub_trajectories = smooth_trajectories_arbitrary_initial_velocity(
-            split_data[:, 1, 2:], split_data[:, 2, 2:], delta_time[1], dt=dt, velocities=sub_initial_v
-        )
-
-        sub_t += sub_initial_t
-        sub_initial_t = sub_t[-1] + dt
-        sub_initial_v = sub_velocities[:, -1]
-
-        t.append(sub_t)
-        accelerations.append(sub_accelerations)
-        velocities.append(sub_velocities)
-        trajectories.append(sub_trajectories)
-
+            t.append(sub_t)
+            accelerations.append(sub_accelerations)
+            velocities.append(sub_velocities)
+            trajectories.append(sub_trajectories)            
+            
         # 将所有子数组沿 axis=1 拼接成一个总数组
         sum_t = np.concatenate(t, axis=0)
         sum_a = np.concatenate(accelerations, axis=1)
         sum_v = np.concatenate(velocities, axis=1)
         sum_traj = np.concatenate(trajectories, axis=1)
 
-        print(sum_t.shape)
-        print(sum_a.shape)
-        print(sum_v.shape)
-        print(sum_traj.shape)
-
+        sum_jerk = calculate_jerk(sum_t, sum_a)
+        zero_array = np.zeros((sum_jerk.shape[0], 1))
+        print(zero_array.shape)
+        sum_jerk = np.concatenate([zero_array, sum_jerk], axis=1)
+        print(sum_jerk.shape)
 
         # 可视化所有粒子
-        visualize_all_particles(sum_t, sum_a, sum_v, sum_traj)
+        visualize_all_particles(sum_t, sum_a, sum_v, sum_traj, jerks=sum_jerk)
 
 
         # # 保存修改后的轨迹
