@@ -8,7 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.s_curve import *
 
 
-# Modified based on the kinodynamics_analysis_1.py: 优化代码结构，提高可读性和效率
+# Modified based on the kinodynamics_analysis_1.py: 优化代码结构，提高可读性和效率，第一段的匀加速直线
 
 
 if __name__ == '__main__':

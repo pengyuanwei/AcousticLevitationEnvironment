@@ -76,7 +76,7 @@ def generate_random_particles(N, space_range):
 
 
 # 可视化
-def visualize_all_particles(t, accelerations, velocities, trajectories):
+def visualize_all_particles(t, accelerations, velocities, trajectories, show_paths=False):
     '''
     同时可视化所有粒子的加速度、速度和轨迹
     '''
@@ -102,17 +102,98 @@ def visualize_all_particles(t, accelerations, velocities, trajectories):
     axs[1].grid()
 
     # 三维轨迹
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(111, projection='3d')
-    for i in range(num_particles):
-        traj = trajectories[i]
-        ax.plot(traj[:, 0], traj[:, 1], traj[:, 2], label=f'Particle {i}', color=colors(i))
-        ax.scatter(traj[0, 0], traj[0, 1], traj[0, 2], color=colors(i), marker='o')  # 起点
-        ax.scatter(traj[-1, 0], traj[-1, 1], traj[-1, 2], color=colors(i), marker='x')  # 终点
+    if show_paths:
+        fig = plt.figure(figsize=(12, 8))
+        ax = fig.add_subplot(111, projection='3d')
+        for i in range(num_particles):
+            traj = trajectories[i]
+            ax.plot(traj[:, 0], traj[:, 1], traj[:, 2], label=f'Particle {i}', color=colors(i))
+            ax.scatter(traj[0, 0], traj[0, 1], traj[0, 2], color=colors(i), marker='o')  # 起点
+            ax.scatter(traj[-1, 0], traj[-1, 1], traj[-1, 2], color=colors(i), marker='x')  # 终点
 
-    ax.set_title('3D Trajectories of All Particles')
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.legend()
+        ax.set_title('3D Trajectories of All Particles')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.legend()
     plt.show()
+
+
+def smooth_trajectories_arbitrary_initial_velocity(start: np.array, end: np.array, total_time: float, dt: float, velocities: np.array):
+    '''
+    输入：
+        start: (N, 3) 每个粒子的起点
+        end: (N, 3) 每个粒子的终点
+        total_time: 总时间（所有粒子相同）
+        dt: 时间步长
+    输出：
+        t: 时间数组
+        accelerations: (N, len(t)) 每个粒子随时间的加速度
+        velocities: (N, len(t)) 每个粒子随时间的速度
+        trajectories: (N, len(t), 3) 每个粒子的轨迹
+    '''
+    # 粒子数量
+    N = start.shape[0]
+
+    # 计算路径长度和方向
+    L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
+    direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
+
+    # 初速度
+    v_0 = velocities
+    # 最大加速度和末速度
+    a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
+    v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
+
+
+    # 修正时间以确保所有粒子速度<=0.1m/s
+    if np.any(v_2 > 0.1 + 1e-9):
+        t_upper_bound = 2 * L / v_0
+        t_lower_bound = 20 * L / (10 * v_0 + 1)
+
+        total_time = np.max(t_lower_bound)
+        #total_time = np.min(t_upper_bound)
+        a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
+        v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
+    
+    # 找出小于 0.0 的元素，并反向计算
+    mask = v_2 < 0.0
+    v_0[mask] = 2 * L[mask] / total_time
+    a_max[mask] = -4 * L[mask] / total_time**2
+    v_2[mask] = 0.0
+
+
+    # 时间数组
+    t = np.arange(0, total_time, dt)
+    num_steps = len(t)
+
+    # 初始化结果数组
+    accelerations = np.zeros((N, num_steps))
+    velocities = np.zeros((N, num_steps))
+    positions = np.zeros((N, num_steps))
+
+    # 时间点对应的加速度、速度和位移
+    for i, ti in enumerate(t):
+        if ti <= (total_time / 2):
+            # 加速阶段前半部分
+            a = (2 * a_max * ti) / total_time  # (N,)
+            v = v_0 + (a_max * ti**2) / total_time  # (N,)
+            s = v_0 * ti + (1/3) * (a_max * ti**3) / total_time  # (N,)
+        elif ti <= total_time:
+            # 加速阶段后半部分
+            a = (-2 * a_max * ti) / total_time + 2 * a_max  # (N,)
+            v = v_0 - (a_max * ti**2) / total_time + 2 * a_max * ti - (1/2) * a_max * total_time  # (N,)
+            s = v_0 * ti - (1/3) * (a_max * ti**3) / total_time + a_max * ti**2 - (1/2) * a_max * total_time * ti + (1/12) * a_max * total_time**2  # (N,)
+        else:
+            a = np.zeros(N)  # 全部置为 0
+            v = v_2
+            s = L  # 终点
+
+        accelerations[:, i] = a
+        velocities[:, i] = v
+        positions[:, i] = s
+
+    # 计算三维轨迹
+    trajectories = positions[:, :, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
+
+    return t, accelerations, velocities, trajectories

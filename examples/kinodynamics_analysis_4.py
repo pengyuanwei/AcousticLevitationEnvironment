@@ -8,7 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.s_curve import *
 
 
-# Modified based on the kinodynamics_analysis_2.py: keypoints之间进行匀速直线运动
+# Modified based on the kinodynamics_analysis_2.py: keypoints之间进行匀速直线运动，第一段的匀速直线
 
 
 if __name__ == '__main__':
