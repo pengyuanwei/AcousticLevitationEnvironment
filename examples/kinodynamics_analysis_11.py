@@ -8,7 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.path_smoothing import *
 
 
-# Modified based on the kinodynamics_analysis_4.py: keypoints之间进行匀速直线运动，除最后一段的匀速直线
+# Modified based on the kinodynamics_analysis_4.py: keypoints之间进行匀速直线运动，整个轨迹的匀速直线插值
 
 
 if __name__ == '__main__':
@@ -61,13 +61,19 @@ if __name__ == '__main__':
             )
 
             sub_t += sub_initial_t
+            # print(sub_t[-1])
             sub_initial_t = sub_t[-1] + dt
             sub_initial_v = sub_velocities[:, -1]
 
             t.append(sub_t)
             accelerations.append(sub_accelerations)
             velocities.append(sub_velocities)
-            trajectories.append(sub_trajectories)            
+            trajectories.append(sub_trajectories)  
+
+        # 计算终点前的运动学参数
+        accelerations[-1][:, -1] = (0.0 - sub_velocities[:, -1]) / dt
+        velocities[-1][:, -1] = 0.0
+
 
         # 将所有子数组沿 axis=1 拼接成一个总数组
         sum_t = np.concatenate(t, axis=0)
@@ -75,14 +81,9 @@ if __name__ == '__main__':
         sum_v = np.concatenate(velocities, axis=1)
         sum_traj = np.concatenate(trajectories, axis=1)
 
-        print(sum_t.shape)
-        print(sum_a.shape)
-
         sum_jerk = calculate_jerk(sum_t, sum_a)
         zero_array = np.zeros((sum_jerk.shape[0], 1))
-        print(zero_array.shape)
         sum_jerk = np.concatenate([zero_array, sum_jerk], axis=1)
-        print(sum_jerk.shape)
 
 
         # 可视化所有粒子

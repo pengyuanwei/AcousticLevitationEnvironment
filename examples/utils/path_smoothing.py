@@ -96,18 +96,18 @@ def visualize_all_particles(t, accelerations, velocities, trajectories, jerks=No
 
     axs[0].set_title('Velocity vs Time')
     axs[0].set_ylabel('Velocity')
-    axs[0].legend()
+    #axs[0].legend()
     axs[0].grid()
 
     axs[1].set_title('Acceleration vs Time')
     axs[1].set_ylabel('Acceleration')
-    axs[1].legend()
+    #axs[1].legend()
     axs[1].grid()
 
     if jerks is not None:
         axs[2].set_title('Jerk vs Time')
         axs[2].set_ylabel('Jerk')
-        axs[2].legend()
+        #axs[2].legend()
         axs[2].grid()
 
     # 三维轨迹

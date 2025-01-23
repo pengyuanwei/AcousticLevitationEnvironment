@@ -8,7 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.path_smoothing import *
 
 
-# Modified based on the kinodynamics_analysis_11.py: keypoints之间进行匀速直线运动，包括最后一段的匀速直线
+# Modified based on the kinodynamics_analysis_8.py: 任意初始速度的匀加速直线运动计算，开头结尾的匀加速直线插值
 
 
 if __name__ == '__main__':
@@ -43,6 +43,13 @@ if __name__ == '__main__':
         # 计算时间变化量（差分）
         # split_data_numpy[:,:,1] 是时间累加值（时间列）
         delta_time = np.diff(split_data[0, :, 1], axis=0)
+        
+        # 平滑路径
+        # 修改第一段的delta_time: 每个segment的dt为确保所有粒子速度小于等于0.1m/s的最大时间
+        # 匀加速直线运动，可知：v_max = 2 * s / t
+        # 轨迹原为匀速直线运动，有：s = v_max * dt
+        # 则有：dt_new =  2 * s / v_max = 20 * s = 20 * (v_max * dt) = 2 * dt
+        delta_time[0] *= 2
 
         # 初始化
         t = []
@@ -56,8 +63,8 @@ if __name__ == '__main__':
 
         # 计算速度S曲线
         for i in range(split_data.shape[1]-1):
-            sub_t, sub_accelerations, sub_velocities, sub_trajectories = uniform_velocity_interpolation(
-                start=split_data[:, i, 2:], end=split_data[:, i+1, 2:], total_time=delta_time[i], dt=dt, velocities=sub_initial_v
+            sub_t, sub_accelerations, sub_velocities, sub_trajectories = uniformly_accelerated_with_arbitrary_initial_velocity(
+                split_data[:, i, 2:], split_data[:, i+1, 2:], delta_time[i], dt=dt, velocities=sub_initial_v
             )
 
             sub_t += sub_initial_t
@@ -67,7 +74,7 @@ if __name__ == '__main__':
             t.append(sub_t)
             accelerations.append(sub_accelerations)
             velocities.append(sub_velocities)
-            trajectories.append(sub_trajectories)            
+            trajectories.append(sub_trajectories)
 
         # 将所有子数组沿 axis=1 拼接成一个总数组
         sum_t = np.concatenate(t, axis=0)
@@ -83,7 +90,6 @@ if __name__ == '__main__':
         print(zero_array.shape)
         sum_jerk = np.concatenate([zero_array, sum_jerk], axis=1)
         print(sum_jerk.shape)
-
 
         # 可视化所有粒子
         visualize_all_particles(sum_t, sum_a, sum_v, sum_traj, jerks=sum_jerk)
