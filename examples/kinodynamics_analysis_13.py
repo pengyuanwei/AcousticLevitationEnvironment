@@ -8,7 +8,7 @@ from examples.utils.optimizer_utils import *
 from examples.utils.path_smoothing import *
 
 
-# Modified based on the kinodynamics_analysis_8.py: 任意初始速度的匀加速直线运动计算，开头结尾的匀加速直线插值
+# Modified based on the kinodynamics_analysis_8.py: 任意初始速度的匀加速直线运动计算，开头结尾的S曲线速度插值
 
 
 if __name__ == '__main__':
@@ -62,19 +62,21 @@ if __name__ == '__main__':
         sub_initial_t = 0.0
         sub_initial_v = np.zeros((8,))
 
+
         # 第一段匀加速
-        sub_t, sub_accelerations, sub_velocities, sub_trajectories = uniformly_accelerated_with_arbitrary_initial_velocity(
+        sub_t, sub_accelerations, sub_velocities, sub_trajectories = smooth_trajectories_arbitrary_initial_velocity(
             split_data[:, 0, 2:], split_data[:, 1, 2:], delta_time[0], dt=dt, velocities=sub_initial_v
         )
 
         sub_t += sub_initial_t
+        print(sub_t[-1])
         sub_initial_t = sub_t[-1] + dt
         sub_initial_v = sub_velocities[:, -1]
 
         t.append(sub_t)
         accelerations.append(sub_accelerations)
         velocities.append(sub_velocities)
-        trajectories.append(sub_trajectories)
+        trajectories.append(sub_trajectories)  
 
         # 中间段匀速直线
         for i in range(1, split_data.shape[1]-2):
@@ -83,7 +85,6 @@ if __name__ == '__main__':
             )
 
             sub_t += sub_initial_t
-            # print(sub_t[-1])
             sub_initial_t = sub_t[-1] + dt
             sub_initial_v = sub_velocities[:, -1]
 
@@ -93,7 +94,7 @@ if __name__ == '__main__':
             trajectories.append(sub_trajectories)  
 
         # 最后一段匀减速
-        sub_t, sub_accelerations, sub_velocities, sub_trajectories = uniformly_accelerated_with_zero_end_velocity(
+        sub_t, sub_accelerations, sub_velocities, sub_trajectories = s_curve_smoothing_with_zero_end_velocity(
             split_data[:, 0, 2:], split_data[:, 1, 2:], delta_time[0], dt=dt, velocities=sub_initial_v
         )
 

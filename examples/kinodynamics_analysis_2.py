@@ -64,7 +64,7 @@ if __name__ == '__main__':
         direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
 
         # 加速度和最大速度
-        a = 2 * L / total_time ** 2  # (N,)
+        a_1 = 2 * L / total_time ** 2  # (N,)
         v_max = 2 * L / total_time  # (N,)
 
         # 时间数组
@@ -78,11 +78,18 @@ if __name__ == '__main__':
 
         # 时间点对应的加速度、速度和位移
         for i, ti in enumerate(t):
-            if ti <= total_time:
+            if i == 0:
+                # 初始状态
+                a = 0.0
+                v = 0.0
+                s = 0.0  # (N,)
+            elif ti <= total_time:
                 # 匀加速阶段
+                a = a_1
                 v = a * ti  # (N,)
                 s = (1/2) * a * ti**2  # (N,)
             else:
+                a = 0.0
                 v = v_max  # 最大速度保持
                 s = L  # 终点
 
@@ -93,8 +100,12 @@ if __name__ == '__main__':
         # 计算三维轨迹
         trajectories = positions[:, :, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
 
+        sum_jerk = calculate_jerk(t, accelerations)
+        zero_array = np.zeros((sum_jerk.shape[0], 1))
+        sum_jerk = np.concatenate([zero_array, sum_jerk], axis=1)
+
         # 可视化所有粒子
-        visualize_all_particles(t, accelerations, velocities, trajectories)
+        visualize_all_particles(t, accelerations, velocities, trajectories, jerks=sum_jerk)
 
 
         # # 保存修改后的轨迹

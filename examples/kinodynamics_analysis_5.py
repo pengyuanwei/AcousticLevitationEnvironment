@@ -63,59 +63,63 @@ if __name__ == '__main__':
         )
 
 
-        # 处理第二段直线路径 ################################################################################
-        start = split_data[:, 1, 2:]
-        end = split_data[:, 2, 2:]
-        total_time = delta_time[1]
-        dt = 32.0/10000
-        # 粒子数量
-        N = start.shape[0]
+        # # 处理第二段直线路径 ################################################################################
+        # start = split_data[:, 1, 2:]
+        # end = split_data[:, 2, 2:]
+        # total_time = delta_time[1]
+        # dt = 32.0/10000
+        # # 粒子数量
+        # N = start.shape[0]
 
-        # 计算路径长度和方向
-        L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
-        direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
+        # # 计算路径长度和方向
+        # L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
+        # direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
 
-        # 初速度
-        v_0 = velocities[:, -1]
-        # 最大加速度和末速度
-        a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
-        v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
+        # # 初速度
+        # v_0 = velocities[:, -1]
+        # # 最大加速度和末速度
+        # a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
+        # v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
 
-        # 时间数组
-        t = np.arange(0, total_time, dt)
-        num_steps = len(t)
+        # # 时间数组
+        # t = np.arange(0, total_time, dt)
+        # num_steps = len(t)
 
-        # 初始化结果数组
-        accelerations = np.zeros((N, num_steps))
-        velocities = np.zeros((N, num_steps))
-        positions = np.zeros((N, num_steps))
+        # # 初始化结果数组
+        # accelerations = np.zeros((N, num_steps))
+        # velocities = np.zeros((N, num_steps))
+        # positions = np.zeros((N, num_steps))
 
-        # 时间点对应的加速度、速度和位移
-        for i, ti in enumerate(t):
-            if ti <= (total_time / 2):
-                # 加速阶段前半部分
-                a = (2 * a_max * ti) / total_time  # (N,)
-                v = v_0 + (a_max * ti**2) / total_time  # (N,)
-                s = v_0 * ti + (1/3) * (a_max * ti**3) / total_time  # (N,)
-            elif ti <= total_time:
-                # 加速阶段后半部分
-                a = (-2 * a_max * ti) / total_time + 2 * a_max  # (N,)
-                v = v_0 - (a_max * ti**2) / total_time + 2 * a_max * ti - (1/2) * a_max * total_time  # (N,)
-                s = v_0 * ti - (1/3) * (a_max * ti**3) / total_time + a_max * ti**2 - (1/2) * a_max * total_time * ti + (1/12) * a_max * total_time**2  # (N,)
-            else:
-                a = np.zeros(N)  # 全部置为 0
-                v = v_2
-                s = L  # 终点
+        # # 时间点对应的加速度、速度和位移
+        # for i, ti in enumerate(t):
+        #     if ti <= (total_time / 2):
+        #         # 加速阶段前半部分
+        #         a = (2 * a_max * ti) / total_time  # (N,)
+        #         v = v_0 + (a_max * ti**2) / total_time  # (N,)
+        #         s = v_0 * ti + (1/3) * (a_max * ti**3) / total_time  # (N,)
+        #     elif ti <= total_time:
+        #         # 加速阶段后半部分
+        #         a = (-2 * a_max * ti) / total_time + 2 * a_max  # (N,)
+        #         v = v_0 - (a_max * ti**2) / total_time + 2 * a_max * ti - (1/2) * a_max * total_time  # (N,)
+        #         s = v_0 * ti - (1/3) * (a_max * ti**3) / total_time + a_max * ti**2 - (1/2) * a_max * total_time * ti + (1/12) * a_max * total_time**2  # (N,)
+        #     else:
+        #         a = np.zeros(N)  # 全部置为 0
+        #         v = v_2
+        #         s = L  # 终点
 
-            accelerations[:, i] = a
-            velocities[:, i] = v
-            positions[:, i] = s
+        #     accelerations[:, i] = a
+        #     velocities[:, i] = v
+        #     positions[:, i] = s
 
-        # 计算三维轨迹
-        trajectories = positions[:, :, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
+        # # 计算三维轨迹
+        # trajectories = positions[:, :, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
+
+        sum_jerk = calculate_jerk(t, accelerations)
+        zero_array = np.zeros((sum_jerk.shape[0], 1))
+        sum_jerk = np.concatenate([zero_array, sum_jerk], axis=1)
 
         # 可视化所有粒子
-        visualize_all_particles(t, accelerations, velocities, trajectories)
+        visualize_all_particles(t, accelerations, velocities, trajectories, jerks=sum_jerk)
 
 
         # # 保存修改后的轨迹
