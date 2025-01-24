@@ -9,16 +9,16 @@ from examples.utils.optimizer_utils import *
 
 
 # Do random search to find better Gorkov points for finded paths(keypoints)
-# Modified based on the trajectory_optimization_9.py: 先处理位置，最后统一处理时间序列
+# Modified based on the trajectory_optimization_10.py: 先处理位置，最后统一处理时间序列
 
 
 if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
     model_name = '20_19_98_99'
-    num_file = 2
+    num_file = 1
     file_name = 'optimised_data'
-    levitator = top_bottom_setup(n_particles, algorithm='TWGS')
+    levitator = top_bottom_setup(n_particles, algorithm='Naive')
 
     computation_time = []
     for n in range(num_file):
@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
 
         # 使用随机搜索来优化最弱Gorkov的timesteps
-        for m in range(10):
+        for m in range(1):
             # Calculate Gorkov
             gorkov = levitator.calculate_gorkov(split_data[:, :, 2:])
             max_gorkov_idx, max_gorkov = calculate_max_gorkov(gorkov)
@@ -100,48 +100,48 @@ if __name__ == '__main__':
         print('\nMax Gorkov after random search:', max_gorkov)
 
 
-        # 检查所有关键点是否在圆圈内，如果不在，对其进行优化
-        for m in range(1, split_data.shape[1] - 1):
-            if positions_check(split_data[:, m, 2:], split_data[:, m-1, 2:], split_data[:, m+1, 2:]):
-                print(f'\n-----------------------The point {m}-----------------------')
-                # Calculate the Gorkov
-                gorkov = levitator.calculate_gorkov(split_data[:, :, 2:])
-                max_gorkov = np.max(gorkov, axis=1)
+        # # 检查所有关键点是否在圆圈内，如果不在，对其进行优化
+        # for m in range(1, split_data.shape[1] - 1):
+        #     if positions_check(split_data[:, m, 2:], split_data[:, m-1, 2:], split_data[:, m+1, 2:]):
+        #         print(f'\n-----------------------The point {m}-----------------------')
+        #         # Calculate the Gorkov
+        #         gorkov = levitator.calculate_gorkov(split_data[:, :, 2:])
+        #         max_gorkov = np.max(gorkov, axis=1)
 
-                candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions(
-                    n_particles, split_data, m, levitator
-                )
+        #         candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions(
+        #             n_particles, split_data, m, levitator
+        #         )
 
-                # 依次取出solutions，先检查是否Gorkov更好，再检查是否满足距离约束
-                # 分别求出两个segment的最大位移，用于缩放时间                
-                re_plan_segment = np.transpose(split_data[:, m-1:m+2, 2:], (1, 0, 2))
+        #         # 依次取出solutions，先检查是否Gorkov更好，再检查是否满足距离约束
+        #         # 分别求出两个segment的最大位移，用于缩放时间                
+        #         re_plan_segment = np.transpose(split_data[:, m-1:m+2, 2:], (1, 0, 2))
 
-                for i in range(candidate_solutions.shape[1]):
-                    # 检查solutions的Gorkov是否比原坐标更差
-                    if sorted_solutions_max_gorkov[i] > max_gorkov[m]:
-                        print('Worse gorkov!')
+        #         for i in range(candidate_solutions.shape[1]):
+        #             # 检查solutions的Gorkov是否比原坐标更差
+        #             if sorted_solutions_max_gorkov[i] > max_gorkov[m]:
+        #                 print('Worse gorkov!')
                         
-                    re_plan_segment[1:2, :, :] = np.transpose(
-                        candidate_solutions[:, sorted_indices[i]:sorted_indices[i]+1, :], 
-                        (1, 0, 2)
-                    )
+        #             re_plan_segment[1:2, :, :] = np.transpose(
+        #                 candidate_solutions[:, sorted_indices[i]:sorted_indices[i]+1, :], 
+        #                 (1, 0, 2)
+        #             )
 
-                    for k in range(2):
-                        segment = re_plan_segment[k:(k+2)]
-                        interpolated_coords = interpolate_positions(segment)
+        #             for k in range(2):
+        #                 segment = re_plan_segment[k:(k+2)]
+        #                 interpolated_coords = interpolate_positions(segment)
                         
-                        for j in range(interpolated_coords.shape[0]):
-                            collision = safety_area(n_particles, interpolated_coords[j])
-                            if np.any(collision != 0):
-                                break
-                        if np.any(collision != 0):
-                            print("Collision!")
-                            break
+        #                 for j in range(interpolated_coords.shape[0]):
+        #                     collision = safety_area(n_particles, interpolated_coords[j])
+        #                     if np.any(collision != 0):
+        #                         break
+        #                 if np.any(collision != 0):
+        #                     print("Collision!")
+        #                     break
 
-                    if np.all(collision == 0):
-                        print("Best candidate idx (start from 0):", i)
-                        split_data[:, m, 2:] = np.copy(candidate_solutions[:, sorted_indices[i], :])
-                        break
+        #             if np.all(collision == 0):
+        #                 print("Best candidate idx (start from 0):", i)
+        #                 split_data[:, m, 2:] = np.copy(candidate_solutions[:, sorted_indices[i], :])
+        #                 break
 
         # 计算时间序列，要求每个片段的最大速度不超过最大速度（0.1m/s）
         max_displacements = max_displacement_v2(split_data[:, :, 2:])

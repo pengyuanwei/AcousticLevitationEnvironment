@@ -4,8 +4,14 @@ import math
 
 
 class top_bottom_setup():
-    def __init__(self, n_particles):
+    def __init__(self, n_particles, algorithm='Naive'):
+        '''
+        algorithm: 'Naive', 'TWGS'.
+        '''
+        if algorithm not in ['Naive', 'TWGS']:
+            raise ValueError(f"Invalid algorithm: {algorithm}. Choose 'Naive' or 'TWGS'.")
         self.n_particles = n_particles
+        self.algorithm = algorithm
         
         # Setup gorkov
         self.l = 0.00865
@@ -26,6 +32,9 @@ class top_bottom_setup():
         self.m = n_particles
         b = torch.ones(self.m, 1) + 1j * torch.zeros(self.m, 1)
         self.b = b.to(torch.complex64)
+
+        self.T_in = torch.pi/32  #Hologram phase change threshold
+        self.T_out = torch.pi/32  #Point activations phase change threshold
 
 
     def create_board(self, N, z):  
@@ -51,17 +60,18 @@ class top_bottom_setup():
         return U, p, px, py, pz
 
 
-    def wgs(self, A, Ax_sim, Ay_sim, Az_sim, b, n, K):
+    def wgs_v1(self, A, Ax_sim, Ay_sim, Az_sim, b, n, K):
         '''
+        Old version
         Inputs:
-            -A: piston model transmission matrix.
+            -A: piston model transmission matrix (forward model matrix).
             -K: iteration number.
         Variables:
             -ph: phase hologram.
         '''
         AT = torch.conj(A).T
-        b0 = b
-        y = b
+        b0 = b  # target amplitudes
+        y = b  # initial guess - normally use `torch.ones(N,1) + 0j`
 
         # When K=1, the WGS degenerate to the Naive.
         for _ in range(K):
@@ -76,6 +86,88 @@ class top_bottom_setup():
         Ur, _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
 
         return Ur
+    
+
+    def wgs(self, A, y0, K):
+        '''
+        New version
+        `A` Forward model matrix to use \\ 
+        `y0` initial guess - normally use `torch.ones(N,1).to(device)+0j`\\
+        `K` number of iterations to run for \\
+        returns (hologram x, field y)
+        '''
+        #Written by Giorgos Christopoulos 2022
+        AT = torch.conj(A).T
+        b0 = torch.ones(A.shape[0],1) + 0j  # target amplitudes
+        y = y0
+        x = torch.ones(A.shape[1],1) + 0j
+        for kk in range(K):
+            x = torch.matmul(AT,y)                                 
+            x = torch.divide(x,torch.abs(x))                          
+            z = torch.matmul(A,x) 
+            y = b0*z*torch.abs(y)/(torch.abs(z)**2) # this same as the code you have, update target, impose this amplitude, and keep phase
+            y = y/torch.max(torch.abs(y))                           
+            
+        # here I don't return phase with signature as previous implementation
+        # compute outside the algorithm A, Ax, Ay, Az, add the signature to torch.angle(x) and compute Gor'kov
+        return x, y
+
+
+    def temporal_wgs(self, A, y0, K, ref_in, ref_out, T_in, T_out):
+        '''
+        `A` Forward model matrix to use \\ 
+        `y0` initial guess - comes from previous frame, for first frame use WGS above and in the first for temporal input the returned y\\
+        `K` number of iterations to run for \\
+        `ref_in` previous hologram (transducers) x \\
+        `ref_out` previous field y \\
+        `T_in` transducer threshold (use pi/64 or pi/32) \\
+        `T_out` point threshold (use 0 or pi/64 or pi/32) \\
+        returns (hologram x, field y)
+        '''    
+        b0 = torch.ones(A.shape[0],1) + 0j  # target amplitudes
+        AT = torch.conj(A).T
+        y = y0
+        x = torch.ones(A.shape[1],1) + 0j
+
+        for _ in range(K):
+            x = torch.matmul(AT,y)
+            x = torch.divide(x,torch.abs(x))   
+            x = self.ph_thresh(ref_in,x,T_in)              # clip transducer phase change
+
+            z = torch.matmul(A,x) 
+            y = b0*z*torch.abs(y)/(torch.abs(z)**2)
+            y = y/torch.max(torch.abs(y))  
+            y = self.ph_thresh(ref_out,y,T_out)            # clip point phase change
+            
+        # here I don't return phase with signature as previous implementation
+        # compute outside the algorithm A, Ax, Ay, Az, add the signature to torch.angle(x) and compute Gor'kov
+        return x, y
+
+
+    def ph_thresh(self, z_last,z,threshold):
+        '''
+        Phase threshhold between two timesteps point phases, clamps phase changes above `threshold` to be `threshold`\\
+        `z_last` point activation at timestep t-1\\
+        `z` point activation at timestep t\\
+        `threshold` maximum allowed phase change\\
+        returns constrained point activations
+        '''
+
+        ph1 = torch.angle(z_last)
+        ph2 = torch.angle(z)
+        dph = ph2 - ph1
+        
+        # dph[dph>math.pi] = dph[dph>math.pi] - 2*math.pi
+        # dph[dph<-1*math.pi] = dph[dph<-1*math.pi] + 2*math.pi    
+        dph = torch.atan2(torch.sin(dph),torch.cos(dph)) 
+        
+        dph[dph>threshold] = threshold
+        dph[dph<-1*threshold] = -1*threshold
+        
+        ph2 = ph1 + dph
+        z = abs(z)*torch.exp(1j*ph2)
+        
+        return z
 
 
     def piston_model(self, points):
@@ -124,10 +216,16 @@ class top_bottom_setup():
     
 
     def calculate_gorkov(self, key_points):
-        transformed_coordinate = key_points.copy()
-        transformed_coordinate[:, :, 2] -= 0.12
+        algorithms = {
+            'Naive': self.calculate_gorkov_wgs,
+            'TWGS': self.calculate_gorkov_twgs
+        }
+        return algorithms[self.algorithm](key_points)
 
-        gorkov_all_timestep = np.zeros((key_points.shape[1], self.n_particles))
+
+    def calculate_gorkov_wgs(self, key_points):
+        gorkov_all_timesteps = np.zeros((key_points.shape[1], self.n_particles))
+        transformed_coordinate = self.preprocess_coordinates(key_points)
 
         for i in range(key_points.shape[1]):
             points = transformed_coordinate[:, i, :]
@@ -138,12 +236,51 @@ class top_bottom_setup():
             Ay2 = Ay2.to(torch.complex64)
             Az2 = Az2.to(torch.complex64)
             H = self.piston_model(points1).to(torch.complex64)
-            gorkov = self.wgs(H, Ax2, Ay2, Az2, self.b, self.num_transducer, 1)
+            gorkov = self.wgs_v1(H, Ax2, Ay2, Az2, self.b, self.num_transducer, 1)
 
             gorkov_numpy = gorkov.numpy()
             
             gorkov_numpy_transpose = gorkov_numpy.T
 
-            gorkov_all_timestep[i:i+1, :] = gorkov_numpy_transpose
+            gorkov_all_timesteps[i:i+1, :] = gorkov_numpy_transpose
 
-        return gorkov_all_timestep
+        return gorkov_all_timesteps
+    
+
+    def calculate_gorkov_twgs(self, key_points):
+        gorkov_all_timesteps = np.zeros((key_points.shape[1], self.n_particles))
+        transformed_coordinate = self.preprocess_coordinates(key_points)
+
+        for i in range(key_points.shape[1]):
+            points = transformed_coordinate[:, i, :]
+            points1 = torch.tensor(points)
+
+            Ax2, Ay2, Az2 = self.surround_points(points1)
+            Ax_sim = Ax2.to(torch.complex64)
+            Ay_sim = Ay2.to(torch.complex64)
+            Az_sim = Az2.to(torch.complex64)
+            A = self.piston_model(points1).to(torch.complex64)
+
+            # if i == 0:
+            #     x, y = self.wgs(A, self.b, 10)
+            # else:
+            #     x, y = self.temporal_wgs(A, self.b, 10, self.ref_in, self.ref_out, self.T_in, self.T_out)
+            # self.ref_in = x
+            # self.ref_out = y
+
+            x, y = self.wgs(A, self.b, 1)
+
+            ph = torch.angle(x) + torch.cat((torch.zeros(int(self.num_transducer/2),1), math.pi*torch.ones(int(self.num_transducer/2),1)), axis=0)
+            gorkov, _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
+
+            gorkov_numpy = gorkov.numpy()
+            gorkov_numpy_transpose = gorkov_numpy.T
+            gorkov_all_timesteps[i:i+1, :] = gorkov_numpy_transpose
+
+        return gorkov_all_timesteps
+    
+
+    def preprocess_coordinates(self, key_points):
+        transformed_coordinate = key_points.copy()
+        transformed_coordinate[:, :, 2] -= 0.12
+        return transformed_coordinate
