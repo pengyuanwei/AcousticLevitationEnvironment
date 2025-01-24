@@ -101,7 +101,8 @@ class top_bottom_setup():
         b0 = torch.ones(A.shape[0],1) + 0j  # target amplitudes
         y = y0
         x = torch.ones(A.shape[1],1) + 0j
-        for kk in range(K):
+
+        for _ in range(K):
             x = torch.matmul(AT,y)                                 
             x = torch.divide(x,torch.abs(x))                          
             z = torch.matmul(A,x) 
@@ -124,8 +125,8 @@ class top_bottom_setup():
         `T_out` point threshold (use 0 or pi/64 or pi/32) \\
         returns (hologram x, field y)
         '''    
-        b0 = torch.ones(A.shape[0],1) + 0j  # target amplitudes
         AT = torch.conj(A).T
+        b0 = torch.ones(A.shape[0],1) + 0j  # target amplitudes
         y = y0
         x = torch.ones(A.shape[1],1) + 0j
 
@@ -236,7 +237,7 @@ class top_bottom_setup():
             Ay2 = Ay2.to(torch.complex64)
             Az2 = Az2.to(torch.complex64)
             H = self.piston_model(points1).to(torch.complex64)
-            gorkov = self.wgs_v1(H, Ax2, Ay2, Az2, self.b, self.num_transducer, 1)
+            gorkov = self.wgs_v1(H, Ax2, Ay2, Az2, self.b, self.num_transducer, 5)
 
             gorkov_numpy = gorkov.numpy()
             
@@ -261,14 +262,13 @@ class top_bottom_setup():
             Az_sim = Az2.to(torch.complex64)
             A = self.piston_model(points1).to(torch.complex64)
 
-            # if i == 0:
-            #     x, y = self.wgs(A, self.b, 10)
-            # else:
-            #     x, y = self.temporal_wgs(A, self.b, 10, self.ref_in, self.ref_out, self.T_in, self.T_out)
-            # self.ref_in = x
-            # self.ref_out = y
-
-            x, y = self.wgs(A, self.b, 1)
+            if i == 0:
+                x, y = self.wgs(A, self.b, 5)
+            else:
+                # temporal_wgs()可能存在一些问题：算出来的Gorkov值为正值。已检查wgs()没有问题。
+                x, y = self.temporal_wgs(A, self.b, 5, self.ref_in, self.ref_out, self.T_in, self.T_out)
+            self.ref_in = x
+            self.ref_out = y
 
             ph = torch.angle(x) + torch.cat((torch.zeros(int(self.num_transducer/2),1), math.pi*torch.ones(int(self.num_transducer/2),1)), axis=0)
             gorkov, _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
