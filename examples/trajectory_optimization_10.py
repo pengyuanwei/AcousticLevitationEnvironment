@@ -16,9 +16,9 @@ if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
     model_name = '20_19_98_99'
-    num_file = 2
+    num_file = 30
     file_name = 'optimised_data'
-    levitator = top_bottom_setup(n_particles, algorithm='TWGS')
+    levitator = top_bottom_setup(n_particles, algorithm='Naive')
 
     computation_time = []
     for n in range(num_file):

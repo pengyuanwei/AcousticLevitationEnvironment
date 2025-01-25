@@ -12,6 +12,7 @@ class top_bottom_setup():
             raise ValueError(f"Invalid algorithm: {algorithm}. Choose 'Naive' or 'TWGS'.")
         self.n_particles = n_particles
         self.algorithm = algorithm
+        self.iterations = 5
         
         # Setup gorkov
         self.l = 0.00865
@@ -33,6 +34,7 @@ class top_bottom_setup():
         b = torch.ones(self.m, 1) + 1j * torch.zeros(self.m, 1)
         self.b = b.to(torch.complex64)
 
+        # TWGS parameters
         self.T_in = torch.pi/32  #Hologram phase change threshold
         self.T_out = torch.pi/32  #Point activations phase change threshold
 
@@ -60,32 +62,32 @@ class top_bottom_setup():
         return U, p, px, py, pz
 
 
-    def wgs_v1(self, A, Ax_sim, Ay_sim, Az_sim, b, n, K):
-        '''
-        Old version
-        Inputs:
-            -A: piston model transmission matrix (forward model matrix).
-            -K: iteration number.
-        Variables:
-            -ph: phase hologram.
-        '''
-        AT = torch.conj(A).T
-        b0 = b  # target amplitudes
-        y = b  # initial guess - normally use `torch.ones(N,1) + 0j`
+    # def wgs_v1(self, A, Ax_sim, Ay_sim, Az_sim, b, n, K):
+    #     '''
+    #     Old version
+    #     Inputs:
+    #         -A: piston model transmission matrix (forward model matrix).
+    #         -K: iteration number.
+    #     Variables:
+    #         -ph: phase hologram.
+    #     '''
+    #     AT = torch.conj(A).T
+    #     b0 = b  # target amplitudes
+    #     y = b  # initial guess - normally use `torch.ones(N,1) + 0j`
 
-        # When K=1, the WGS degenerate to the Naive.
-        for _ in range(K):
-            x = torch.matmul(AT, y)
-            x = torch.divide(x, torch.abs(x))      
-            y = torch.matmul(A, x)
-            y = y/torch.max(torch.abs(y))
-            b = torch.multiply(b0, torch.divide(b,torch.abs(y)))
-            y = torch.multiply(b, torch.divide(y,torch.abs(y)))
+    #     # When K=1, the WGS degenerate to the Naive.
+    #     for _ in range(K):
+    #         x = torch.matmul(AT, y)
+    #         x = torch.divide(x, torch.abs(x))      
+    #         y = torch.matmul(A, x)
+    #         y = y/torch.max(torch.abs(y))
+    #         b = torch.multiply(b0, torch.divide(b,torch.abs(y)))
+    #         y = torch.multiply(b, torch.divide(y,torch.abs(y)))
             
-        ph = torch.angle(x) + torch.cat((torch.zeros(int(n/2),1),math.pi*torch.ones(int(n/2),1)),axis=0)
-        Ur, _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
+    #     ph = torch.angle(x) + torch.cat((torch.zeros(int(n/2),1),math.pi*torch.ones(int(n/2),1)),axis=0)
+    #     Ur, _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
 
-        return Ur
+    #     return Ur
     
 
     def wgs(self, A, y0, K):
@@ -102,6 +104,7 @@ class top_bottom_setup():
         y = y0
         x = torch.ones(A.shape[1],1) + 0j
 
+        # When K=1, the WGS degenerate to the Naive.
         for _ in range(K):
             x = torch.matmul(AT,y)                                 
             x = torch.divide(x,torch.abs(x))                          
@@ -225,62 +228,52 @@ class top_bottom_setup():
 
 
     def calculate_gorkov_wgs(self, key_points):
-        gorkov_all_timesteps = np.zeros((key_points.shape[1], self.n_particles))
-        transformed_coordinate = self.preprocess_coordinates(key_points)
+        gorkov = torch.zeros((self.n_particles, key_points.shape[1]))
+        locations = self.preprocess_coordinates(key_points)
 
         for i in range(key_points.shape[1]):
-            points = transformed_coordinate[:, i, :]
+            A = self.piston_model(locations[:, i, :]).to(torch.complex64)
+            x, _ = self.wgs(A, self.b, self.iterations)
+            # Add signature to hologram phase
+            ph = torch.angle(x) + torch.cat((torch.zeros(int(self.num_transducer/2),1), math.pi*torch.ones(int(self.num_transducer/2),1)), axis=0)
 
-            points1 = torch.tensor(points)
-            Ax2, Ay2, Az2 = self.surround_points(points1)
-            Ax2 = Ax2.to(torch.complex64)
-            Ay2 = Ay2.to(torch.complex64)
-            Az2 = Az2.to(torch.complex64)
-            H = self.piston_model(points1).to(torch.complex64)
-            gorkov = self.wgs_v1(H, Ax2, Ay2, Az2, self.b, self.num_transducer, 5)
-
-            gorkov_numpy = gorkov.numpy()
+            Ax_sim, Ay_sim, Az_sim = self.surround_points(locations[:, i, :])
+            Ax_sim = Ax_sim.to(torch.complex64)
+            Ay_sim = Ay_sim.to(torch.complex64)
+            Az_sim = Az_sim.to(torch.complex64)
+            gorkov[:, i:i+1], _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
             
-            gorkov_numpy_transpose = gorkov_numpy.T
-
-            gorkov_all_timesteps[i:i+1, :] = gorkov_numpy_transpose
-
-        return gorkov_all_timesteps
+        return gorkov.T.numpy()
     
 
     def calculate_gorkov_twgs(self, key_points):
-        gorkov_all_timesteps = np.zeros((key_points.shape[1], self.n_particles))
-        transformed_coordinate = self.preprocess_coordinates(key_points)
+        gorkov = torch.zeros((self.n_particles, key_points.shape[1]))
+        locations = self.preprocess_coordinates(key_points)
 
         for i in range(key_points.shape[1]):
-            points = transformed_coordinate[:, i, :]
-            points1 = torch.tensor(points)
+            A = self.piston_model(locations[:, i, :]).to(torch.complex64)
+            if i == 0:
+                x, y = self.wgs(A, self.b, self.iterations)
+            else:
+                # temporal_wgs()可能存在一些问题：算出来的Gorkov值为正值。已检查wgs()没有问题。
+                x, y = self.temporal_wgs(A, self.b, self.iterations, self.ref_in, self.ref_out, self.T_in, self.T_out)
+            # Update the reference phase
+            self.ref_in = x
+            self.ref_out = y
+            # Add signature to hologram phase
+            ph = torch.angle(x) + torch.cat((torch.zeros(int(self.num_transducer/2),1), math.pi*torch.ones(int(self.num_transducer/2),1)), axis=0)
 
-            Ax2, Ay2, Az2 = self.surround_points(points1)
+            Ax2, Ay2, Az2 = self.surround_points(locations[:, i, :])
             Ax_sim = Ax2.to(torch.complex64)
             Ay_sim = Ay2.to(torch.complex64)
             Az_sim = Az2.to(torch.complex64)
-            A = self.piston_model(points1).to(torch.complex64)
+            gorkov[:, i:i+1], _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
 
-            if i == 0:
-                x, y = self.wgs(A, self.b, 5)
-            else:
-                # temporal_wgs()可能存在一些问题：算出来的Gorkov值为正值。已检查wgs()没有问题。
-                x, y = self.temporal_wgs(A, self.b, 5, self.ref_in, self.ref_out, self.T_in, self.T_out)
-            self.ref_in = x
-            self.ref_out = y
-
-            ph = torch.angle(x) + torch.cat((torch.zeros(int(self.num_transducer/2),1), math.pi*torch.ones(int(self.num_transducer/2),1)), axis=0)
-            gorkov, _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
-
-            gorkov_numpy = gorkov.numpy()
-            gorkov_numpy_transpose = gorkov_numpy.T
-            gorkov_all_timesteps[i:i+1, :] = gorkov_numpy_transpose
-
-        return gorkov_all_timesteps
+        return gorkov.T.numpy()
     
 
     def preprocess_coordinates(self, key_points):
         transformed_coordinate = key_points.copy()
         transformed_coordinate[:, :, 2] -= 0.12
-        return transformed_coordinate
+        points = torch.tensor(transformed_coordinate)
+        return points
