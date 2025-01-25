@@ -15,7 +15,7 @@ if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
     model_name = '20_19_98_99'
-    num_file = 1
+    num_file = 30
     file_name_0 = 'optimised_data'
     file_name_1 = 'optimised_1_data'
 
@@ -87,10 +87,10 @@ if __name__ == '__main__':
             trajectories.append(sub_trajectories)  
 
         # 最后一段匀减速
-        sub_t, _, _, sub_trajectories = s_curve_smoothing_with_zero_end_velocity(
-            split_data[:, -2, 2:], split_data[:, -1, 2:], delta_time[0], dt=dt, velocities=sub_initial_v
+        sub_t, _, _, sub_trajectories = s_curve_smoothing_with_zero_end_velocity_simple(
+            split_data[:, -2, 2:], split_data[:, -1, 2:], delta_time[-1], dt=dt, velocities=sub_initial_v
         )
-        
+
         sub_t += sub_initial_t
         sub_initial_t = sub_t[-1] + dt
 
@@ -101,17 +101,16 @@ if __name__ == '__main__':
         sum_t = np.concatenate(t, axis=0)
         sum_traj = np.concatenate(trajectories, axis=1)
 
-        displacements = np.zeros((sum_traj.shape[0], sum_traj.shape[1]))
-        displacements[:, 1:] = np.linalg.norm(sum_traj[:, 1:, :] - sum_traj[:, :-1, :], axis=2)  # (N,) 每个粒子的总路径长度
+        # displacements = np.zeros((sum_traj.shape[0], sum_traj.shape[1]))
+        # displacements[:, 1:] = np.linalg.norm(sum_traj[:, 1:, :] - sum_traj[:, :-1, :], axis=2)  # (N,) 每个粒子的总路径长度
+        # visualize_lengths(sum_t, displacements)
 
-        visualize_lengths(sum_t, displacements)
 
+        final_traj = np.zeros((sum_traj.shape[0], sum_traj.shape[1], 5))
+        final_traj[:, :, 0] = np.arange(sum_traj.shape[1])
+        final_traj[:, :, 1] = sum_t
+        final_traj[:, :, 2:] = sum_traj
 
-        # # final_traj = np.zeros((sum_traj.shape[0], sum_traj.shape[1], 5))
-        # # final_traj[:, :, 0] = np.arange(sum_traj.shape[1])
-        # # final_traj[:, :, 1] = sum_t
-        # # final_traj[:, :, 2:] = sum_traj
-
-        # # # 保存修改后的轨迹
-        # # file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
-        # # save_path_v2(file_path, n_particles, final_traj)
+        # 保存修改后的轨迹
+        file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
+        save_path_v2(file_path, n_particles, final_traj)

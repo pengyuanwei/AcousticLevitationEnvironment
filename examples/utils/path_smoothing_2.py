@@ -139,8 +139,8 @@ def visualize_lengths(t, displacements):
     for i in range(num_particles):
         axs.plot(t, displacements[i], color=colors(i))
 
-    axs.set_title('Velocity vs Time')
-    axs.set_ylabel('Velocity')
+    axs.set_title('Dispalcement vs Time')
+    axs.set_ylabel('Dispalcement')
     #axs.legend()
     axs.grid()
     plt.show()
@@ -223,7 +223,7 @@ def smooth_trajectories_arbitrary_initial_velocity(start: np.array, end: np.arra
     return t, accelerations, velocities, trajectories
 
 
-def s_curve_smoothing_with_zero_end_velocity(start: np.array, end: np.array, total_time: float, dt: float, velocities: np.array):
+def s_curve_smoothing_with_zero_end_velocity_simple(start: np.array, end: np.array, total_time: float, dt: float, velocities: np.array):
     '''
     输入：
         start: (N, 3) 每个粒子的起点
@@ -251,7 +251,7 @@ def s_curve_smoothing_with_zero_end_velocity(start: np.array, end: np.array, tot
     v_2 = 0.0  # (N,)
 
     # 时间数组
-    t = np.arange(0, total_time, dt)
+    t = np.arange(0, total_time+dt, dt)
     num_steps = len(t)
 
     # 初始化结果数组
@@ -261,12 +261,12 @@ def s_curve_smoothing_with_zero_end_velocity(start: np.array, end: np.array, tot
 
     # 时间点对应的加速度、速度和位移
     for i, ti in enumerate(t):
-        if ti <= (total_time / 2):
+        if ti <= ((total_time+dt) / 2):
             # 加速阶段前半部分
             a = (2 * a_max * ti) / total_time  # (N,)
             v = v_0 + (a_max * ti**2) / total_time  # (N,)
             s = v_0 * ti + (1/3) * (a_max * ti**3) / total_time  # (N,)
-        elif ti <= total_time:
+        elif ti <= (total_time+dt):
             # 加速阶段后半部分
             a = (-2 * a_max * ti) / total_time + 2 * a_max  # (N,)
             v = v_0 - (a_max * ti**2) / total_time + 2 * a_max * ti - (1/2) * a_max * total_time  # (N,)
@@ -476,7 +476,6 @@ def uniform_velocity_interpolation_simple(start: np.array, end: np.array, total_
 
     segments = np.array([np.linspace(0, ds, num_steps) for ds in L])
     final_v = segments[:, -1] / total_time
-    print(final_v)
 
     # 计算三维轨迹
     trajectories = segments[:, :-1, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
