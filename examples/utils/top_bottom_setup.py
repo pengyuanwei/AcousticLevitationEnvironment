@@ -4,7 +4,7 @@ import math
 
 
 class top_bottom_setup():
-    def __init__(self, n_particles, algorithm='Naive'):
+    def __init__(self, n_particles, algorithm='Naive', iterations=1):
         '''
         algorithm: 'Naive', 'TWGS'.
         '''
@@ -12,7 +12,7 @@ class top_bottom_setup():
             raise ValueError(f"Invalid algorithm: {algorithm}. Choose 'Naive' or 'TWGS'.")
         self.n_particles = n_particles
         self.algorithm = algorithm
-        self.iterations = 5
+        self.iterations = iterations
         
         # Setup gorkov
         self.l = 0.00865
