@@ -128,6 +128,26 @@ def visualize_all_particles(t, accelerations, velocities, trajectories, jerks=No
     plt.show()
 
 
+def visualize_velocities(t, accelerations, velocities, trajectories, jerks=None, show_paths=False):
+    '''
+    同时可视化所有粒子的加速度、速度和轨迹
+    '''
+    num_particles = accelerations.shape[0]
+    colors = plt.cm.get_cmap('tab10', num_particles)  # 使用不同颜色绘制
+
+    # 速度
+    fig, axs = plt.subplots(1, 1, figsize=(12, 4))
+    for i in range(num_particles):
+        axs.plot(t, velocities[i], label=f'Particle {i}', color=colors(i))
+
+    axs.set_title('Velocity vs Time')
+    axs.set_ylabel('Velocity')
+    #axs[0].legend()
+    axs.grid()
+
+    plt.show()
+
+
 def visualize_lengths(t, displacements):
     '''
     同时可视化所有粒子的加速度、速度和轨迹

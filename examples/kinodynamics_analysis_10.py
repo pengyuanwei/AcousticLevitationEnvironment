@@ -92,7 +92,7 @@ if __name__ == '__main__':
         print(sum_jerk.shape)
 
         # 可视化所有粒子
-        visualize_all_particles(sum_t, sum_a, sum_v, sum_traj, jerks=sum_jerk)
+        visualize_velocities(sum_t, sum_a, sum_v, sum_traj, jerks=sum_jerk)
 
 
         # # 保存修改后的轨迹
