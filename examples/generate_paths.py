@@ -1,11 +1,12 @@
 import os
 import math
 import gymnasium as gym
-
-from examples.utils.general_utils import *
 from acoustorl import MADDPG
 
-# Change from generate_path_1.py
+from examples.utils.general_utils import *
+from examples.utils.top_bottom_setup import top_bottom_setup
+
+# Change from generate_path_1.py: 计算gorkov势
 
 if __name__ == "__main__":
     n_particles = 8
@@ -20,12 +21,12 @@ if __name__ == "__main__":
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    env_name_1 = "acousticlevitationenvironment/GlobalPlannerAPF-v0"
+    env_name_1 = "acousticlevitationenvironment/PlannerAPF-v0"
     delta_time_1 = 1.0/10
     max_timesteps_1 = 20
     global_env = gym.make(env_name_1, n_particles=n_particles, delta_time=delta_time_1, max_timesteps=max_timesteps_1)
 
-    env_name_2 = "acousticlevitationenvironment/GlobalRePlannerAPF-v0"
+    env_name_2 = "acousticlevitationenvironment/RePlannerAPF-v0"
     delta_time_2 = 1.0/10
     max_timesteps_2 = 20
     replan_env = gym.make(env_name_2, n_particles=n_particles, delta_time=delta_time_2, max_timesteps=max_timesteps_2)
@@ -81,11 +82,12 @@ if __name__ == "__main__":
     )
     replan_agent_2.load(best_model_number_2, global_model_dir_4)
 
+    # WGS, iterations=5
+    levitator = top_bottom_setup(n_particles, algorithm='Naive', iterations=5)
+
     delta_time_3 = 0.1 * math.sqrt(3)
     success_num = 100
-    times = []
-
-    for n in range(100):  
+    for n in range(1):  
         print(f'-----------------------The {n} th set of paths-----------------------')  
 
         key_points, failure1 = generate_global_paths(global_env, main_agent, n_particles, max_timesteps_1)
@@ -108,6 +110,7 @@ if __name__ == "__main__":
                         success_num -= 1
                         continue
 
-        #save_path(paths, save_dir, n_particles, delta_time_3, n)
+        # numpy array, (path_lengths, num_particles, 3)
+        gorkov = levitator.calculate_gorkov_transposed(paths)
 
     print(f'The success number: {success_num}')

@@ -220,6 +220,9 @@ class top_bottom_setup():
     
 
     def calculate_gorkov(self, key_points):
+        '''
+        key_points: numpy array, (num_particles, path_lengths, 3)
+        '''
         algorithms = {
             'Naive': self.calculate_gorkov_wgs,
             'TWGS': self.calculate_gorkov_twgs
@@ -227,7 +230,21 @@ class top_bottom_setup():
         return algorithms[self.algorithm](key_points)
 
 
+    def calculate_gorkov_transposed(self, key_points):
+        '''
+        key_points: numpy array, (path_lengths, num_particles, 3)
+        '''
+        algorithms = {
+            'Naive': self.calculate_gorkov_wgs_transposed,
+            'TWGS': self.calculate_gorkov_twgs
+        }
+        return algorithms[self.algorithm](key_points)
+    
+
     def calculate_gorkov_wgs(self, key_points):
+        '''
+        key_points: numpy array, (num_particles, path_lengths, 3)
+        '''
         gorkov = torch.zeros((self.n_particles, key_points.shape[1]))
         locations = self.preprocess_coordinates(key_points)
 
@@ -246,7 +263,33 @@ class top_bottom_setup():
         return gorkov.T.numpy()
     
 
+    def calculate_gorkov_wgs_transposed(self, key_points):
+        '''
+        key_points: numpy array, (path_lengths, num_particles, 3)
+        output: numpy array, (num_particles, path_lengths)
+        '''
+        gorkov = torch.zeros((self.n_particles, key_points.shape[0]))
+        locations = self.preprocess_coordinates(key_points)
+
+        for i in range(key_points.shape[0]):
+            A = self.piston_model(locations[i, :, :]).to(torch.complex64)
+            x, _ = self.wgs(A, self.b, self.iterations)
+            # Add signature to hologram phase
+            ph = torch.angle(x) + torch.cat((torch.zeros(int(self.num_transducer/2),1), math.pi*torch.ones(int(self.num_transducer/2),1)), axis=0)
+
+            Ax_sim, Ay_sim, Az_sim = self.surround_points(locations[i, :, :])
+            Ax_sim = Ax_sim.to(torch.complex64)
+            Ay_sim = Ay_sim.to(torch.complex64)
+            Az_sim = Az_sim.to(torch.complex64)
+            gorkov[:, i:i+1], _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
+            
+        return gorkov.T.numpy()
+    
+
     def calculate_gorkov_twgs(self, key_points):
+        '''
+        key_points: numpy array, (num_particles, path_lengths, 3)
+        '''
         gorkov = torch.zeros((self.n_particles, key_points.shape[1]))
         locations = self.preprocess_coordinates(key_points)
 

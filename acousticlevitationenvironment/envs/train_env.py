@@ -5,8 +5,8 @@ import gymnasium as gym
 
 from typing import Optional, Tuple, Any, List, Dict
 
-from acousticlevitationgym.particles import particle_slim, target_slim
-from acousticlevitationgym.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing
+from acousticlevitationenvironment.particles import particle_slim, target_slim
+from acousticlevitationenvironment.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing
 
 
 class TrainEnv(gym.Env):
