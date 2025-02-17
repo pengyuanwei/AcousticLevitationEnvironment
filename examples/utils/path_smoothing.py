@@ -277,14 +277,14 @@ def smooth_trajectories_arbitrary_initial_velocity_v2(start: np.array, end: np.a
     #     a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
     #     v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
 
-    # 修正时间以确保所有粒子速度>=0.0m/s
-    if np.any(v_2 < 0.0):
-        # t_lower_bound = 20 * L / (10 * v_0 + 1)
-        # total_time = np.max(t_lower_bound)
-        t_upper_bound = 2 * L / v_0
-        total_time = np.min(t_upper_bound)
-        a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
-        v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
+    # # 修正时间以确保所有粒子速度>=0.0m/s
+    # if np.any(v_2 < 0.0):
+    #     # t_lower_bound = 20 * L / (10 * v_0 + 1)
+    #     # total_time = np.max(t_lower_bound)
+    #     t_upper_bound = 2 * L / v_0
+    #     total_time = np.min(t_upper_bound)
+    #     a_max = 4 * (L - v_0 * total_time) / total_time ** 2  # (N,)
+    #     v_2 = v_0 + 2 * (L - v_0 * total_time) / total_time  # (N,)
 
     # # 找出小于 0.0 的元素，并反向计算
     # mask = v_2 < 0.0

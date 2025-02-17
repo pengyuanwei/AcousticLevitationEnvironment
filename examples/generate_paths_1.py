@@ -5,7 +5,9 @@ import gymnasium as gym
 from examples.utils.general_utils import *
 from acoustorl import MADDPG
 
-# Change from generate_path_1.py
+
+# Change from evaluate_planner.py
+
 
 if __name__ == "__main__":
     n_particles = 8
@@ -108,6 +110,6 @@ if __name__ == "__main__":
                         success_num -= 1
                         continue
 
-        #save_path(paths, save_dir, n_particles, delta_time_3, n)
+        save_path(paths, save_dir, n_particles, delta_time_3, n)
 
     print(f'The success number: {success_num}')
