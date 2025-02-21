@@ -8,16 +8,16 @@ from examples.utils.optimizer_utils import *
 from examples.utils.path_smoothing_2 import *
 
 
-# Modified based on the path_smoothing_s_curve_v_v1.py: 从现实的离散轨迹入手，实现开头结尾的S曲线速度插值
+# Modified based on the kinodynamics_analysis_14.py: 从现实的离散轨迹入手，实现开头结尾的S曲线速度插值
 
 
 if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
-    model_name = '20_19_98_99/planner_v2'
+    model_name = '20_19_98_99'
     num_file = 30
-    file_name_0 = 'path'
-    file_name_1 = 'smoothed_path'
+    file_name_0 = 'optimised_N_data'
+    file_name_1 = 'optimised_N_1_data'
 
     levitator = top_bottom_setup(n_particles)
 
@@ -74,43 +74,43 @@ if __name__ == '__main__':
         t.append(sub_t)
         trajectories.append(sub_trajectories)  
 
-        # # 中间段匀速直线
-        # for i in range(1, split_data.shape[1]-2):
-        #     sub_t, sub_trajectories, sub_initial_v = uniform_velocity_interpolation_simple(
-        #         start=split_data[:, i, 2:], end=split_data[:, i+1, 2:], total_time=delta_time[i], dt=dt, velocities=sub_initial_v
-        #     )
+        # 中间段匀速直线
+        for i in range(1, split_data.shape[1]-2):
+            sub_t, sub_trajectories, sub_initial_v = uniform_velocity_interpolation_simple(
+                start=split_data[:, i, 2:], end=split_data[:, i+1, 2:], total_time=delta_time[i], dt=dt, velocities=sub_initial_v
+            )
 
-        #     sub_t += sub_initial_t
-        #     sub_initial_t = sub_t[-1] + dt
+            sub_t += sub_initial_t
+            sub_initial_t = sub_t[-1] + dt
 
-        #     t.append(sub_t)
-        #     trajectories.append(sub_trajectories)  
+            t.append(sub_t)
+            trajectories.append(sub_trajectories)  
 
-        # # 最后一段匀减速
-        # sub_t, _, _, sub_trajectories = s_curve_smoothing_with_zero_end_velocity_simple(
-        #     split_data[:, -2, 2:], split_data[:, -1, 2:], delta_time[-1], dt=dt, velocities=sub_initial_v
-        # )
+        # 最后一段匀减速
+        sub_t, _, _, sub_trajectories = s_curve_smoothing_with_zero_end_velocity_simple(
+            split_data[:, -2, 2:], split_data[:, -1, 2:], delta_time[-1], dt=dt, velocities=sub_initial_v
+        )
 
-        # sub_t += sub_initial_t
-        # sub_initial_t = sub_t[-1] + dt
+        sub_t += sub_initial_t
+        sub_initial_t = sub_t[-1] + dt
 
-        # t.append(sub_t)
-        # trajectories.append(sub_trajectories)
+        t.append(sub_t)
+        trajectories.append(sub_trajectories)
 
-        # # 将所有子数组沿 axis=1 拼接成一个总数组
-        # sum_t = np.concatenate(t, axis=0)
-        # sum_traj = np.concatenate(trajectories, axis=1)
+        # 将所有子数组沿 axis=1 拼接成一个总数组
+        sum_t = np.concatenate(t, axis=0)
+        sum_traj = np.concatenate(trajectories, axis=1)
 
-        # # displacements = np.zeros((sum_traj.shape[0], sum_traj.shape[1]))
-        # # displacements[:, 1:] = np.linalg.norm(sum_traj[:, 1:, :] - sum_traj[:, :-1, :], axis=2)  # (N,) 每个粒子的总路径长度
-        # # visualize_lengths(sum_t, displacements)
+        # displacements = np.zeros((sum_traj.shape[0], sum_traj.shape[1]))
+        # displacements[:, 1:] = np.linalg.norm(sum_traj[:, 1:, :] - sum_traj[:, :-1, :], axis=2)  # (N,) 每个粒子的总路径长度
+        # visualize_lengths(sum_t, displacements)
 
 
-        # final_traj = np.zeros((sum_traj.shape[0], sum_traj.shape[1], 5))
-        # final_traj[:, :, 0] = np.arange(sum_traj.shape[1])
-        # final_traj[:, :, 1] = sum_t
-        # final_traj[:, :, 2:] = sum_traj
+        final_traj = np.zeros((sum_traj.shape[0], sum_traj.shape[1], 5))
+        final_traj[:, :, 0] = np.arange(sum_traj.shape[1])
+        final_traj[:, :, 1] = sum_t
+        final_traj[:, :, 2:] = sum_traj
 
-        # # 保存修改后的轨迹
-        # file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
-        # save_path_v2(file_path, n_particles, final_traj)
+        # 保存修改后的轨迹
+        file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
+        save_path_v2(file_path, n_particles, final_traj)

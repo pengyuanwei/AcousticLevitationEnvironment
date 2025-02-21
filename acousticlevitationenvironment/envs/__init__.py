@@ -6,3 +6,7 @@ from acousticlevitationenvironment.envs.re_planner import RePlanner
 
 from acousticlevitationenvironment.envs.planner_APF import PlannerAPF
 from acousticlevitationenvironment.envs.re_planner_APF import RePlannerAPF
+
+from acousticlevitationenvironment.envs.planner_APF_gorkov import PlannerAPFGorkov
+from acousticlevitationenvironment.envs.re_planner_APF_gorkov import RePlannerAPFGorkov
+from acousticlevitationenvironment.envs.re_planner_APF_v2 import RePlannerAPFv2

@@ -241,11 +241,25 @@ class top_bottom_setup():
         return algorithms[self.algorithm](key_points)
     
 
+    def calculate_gorkov_single_state(self, key_points):
+        '''
+        key_points: numpy array, (num_particles, 3)
+        '''
+        algorithms = {
+            'Naive': self.calculate_gorkov_wgs_single_state,
+            'TWGS': self.calculate_gorkov_twgs
+        }
+        return algorithms[self.algorithm](key_points)
+    
+
     def calculate_gorkov_wgs(self, key_points):
         '''
-        key_points: numpy array, (num_particles, path_lengths, 3)
+        input:
+            - key_points: numpy array, (num_particles, path_lengths, 3)
+        output:
+            - gorkov.T.numpy(): (path_lengths, num_particles)
         '''
-        gorkov = torch.zeros((self.n_particles, key_points.shape[1]))
+        gorkov = torch.zeros((key_points.shape[0], key_points.shape[1]))
         locations = self.preprocess_coordinates(key_points)
 
         for i in range(key_points.shape[1]):
@@ -286,6 +300,28 @@ class top_bottom_setup():
         return gorkov.T.numpy()
     
 
+    def calculate_gorkov_wgs_single_state(self, key_points):
+        '''
+        key_points: numpy array, (num_particles, 3)
+        output: numpy array, (num_particles, 1)
+        '''
+        gorkov = torch.zeros((self.n_particles, 1))
+        locations = self.preprocess_coordinates_single_state(key_points)
+
+        A = self.piston_model(locations).to(torch.complex64)
+        x, _ = self.wgs(A, self.b, self.iterations)
+        # Add signature to hologram phase
+        ph = torch.angle(x) + torch.cat((torch.zeros(int(self.num_transducer/2),1), math.pi*torch.ones(int(self.num_transducer/2),1)), axis=0)
+
+        Ax_sim, Ay_sim, Az_sim = self.surround_points(locations)
+        Ax_sim = Ax_sim.to(torch.complex64)
+        Ay_sim = Ay_sim.to(torch.complex64)
+        Az_sim = Az_sim.to(torch.complex64)
+        gorkov, _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
+            
+        return gorkov.numpy()
+    
+
     def calculate_gorkov_twgs(self, key_points):
         '''
         key_points: numpy array, (num_particles, path_lengths, 3)
@@ -318,5 +354,12 @@ class top_bottom_setup():
     def preprocess_coordinates(self, key_points):
         transformed_coordinate = key_points.copy()
         transformed_coordinate[:, :, 2] -= 0.12
+        points = torch.tensor(transformed_coordinate)
+        return points
+    
+
+    def preprocess_coordinates_single_state(self, key_points):
+        transformed_coordinate = key_points.copy()
+        transformed_coordinate[:, 2] -= 0.12
         points = torch.tensor(transformed_coordinate)
         return points

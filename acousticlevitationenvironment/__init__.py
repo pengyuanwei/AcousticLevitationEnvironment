@@ -36,3 +36,21 @@ register(
      entry_point="acousticlevitationenvironment.envs:RePlannerAPF",
      max_episode_steps=20,
 )
+
+register(
+     id="acousticlevitationenvironment/PlannerAPFGorkov-v0",
+     entry_point="acousticlevitationenvironment.envs:PlannerAPFGorkov",
+     max_episode_steps=20,
+)
+
+register(
+     id="acousticlevitationenvironment/RePlannerAPFGorkov-v0",
+     entry_point="acousticlevitationenvironment.envs:RePlannerAPFGorkov",
+     max_episode_steps=20,
+)
+
+register(
+     id="acousticlevitationenvironment/RePlannerAPF-v2",
+     entry_point="acousticlevitationenvironment.envs:RePlannerAPFv2",
+     max_episode_steps=20,
+)

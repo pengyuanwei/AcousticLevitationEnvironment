@@ -81,6 +81,9 @@ def create_constrained_points(N, particles, cube_size, max_attempts=1000):
 
 
 def create_constrained_points_1(N, cur_positions, last_positions, next_positions, max_attempts=1000):
+    '''
+    下个状态已知；不能固定某些粒子
+    '''
     x_min, x_max, y_min, y_max, z_min, z_max = [-0.06, 0.06, -0.06, 0.06, -0.06+0.12, 0.06+0.12]
     cube_size = np.linalg.norm((next_positions - last_positions), axis=1)
     search_area_center = (next_positions + last_positions) / 2.0
@@ -112,6 +115,123 @@ def create_constrained_points_1(N, cur_positions, last_positions, next_positions
             solutions.append(points)
     
     return np.array(solutions)
+
+
+def create_constrained_points_5(
+        n_particles: int, 
+        last_positions: np.array, 
+        current_positions: np.array,
+        next_positions: np.array, 
+        reach_index: np.array, 
+        num_solutions: int=10
+    ):
+    '''
+    下个状态已知；允许固定一些粒子
+    input:
+        - reach_index: (num_particles, fixed_or_not)
+    output:
+        - np.array(solutions): (num_solutions, n_particles, 3)
+    '''
+    fixed_points = {}
+    for i in range(n_particles):
+        if reach_index[i]:
+            fixed_points[i] = np.array([current_positions[i][0], current_positions[i][1], current_positions[i][2]])
+
+    cube_size = np.linalg.norm((next_positions - last_positions), axis=1)
+    search_area_center = (next_positions + last_positions) / 2.0
+    x_min, x_max, y_min, y_max, z_min, z_max = [-0.06, 0.06, -0.06, 0.06, -0.06+0.12, 0.06+0.12]
+    solutions = []
+    attempts = 0
+    while len(solutions) < num_solutions:
+        searched_points = {}
+        for i in range(n_particles): 
+            if not reach_index[i]:
+                # 在search area内随机生成一个点
+                movement = np.random.uniform(-cube_size[i]/(10.0), cube_size[i]/(10.0), 3)
+                point = np.array([min(max(search_area_center[i][0] + movement[0], x_min), x_max), 
+                                min(max(search_area_center[i][1] + movement[1], y_min), y_max), 
+                                min(max(search_area_center[i][2] + movement[2], z_min), z_max)])
+                
+                # 检查与已生成点之间的椭球体距离约束
+                valid_fixed = is_valid_distance(point, fixed_points.values())
+                valid_searched = is_valid_distance(point, searched_points.values())
+                if valid_fixed and valid_searched:
+                    searched_points[i] = point
+                
+        if (len(fixed_points) + len(searched_points)) == n_particles:
+            new_points = fixed_points | searched_points
+            sorted_keys = sorted(new_points.keys())
+            points_array = np.array([new_points[key] for key in sorted_keys])
+            solutions.append(points_array)
+        
+        attempts += 1
+        if attempts >= num_solutions*100:
+            print(f"Gorkov solutions: 达到最大迭代次数, solution 数量: {len(solutions)}。")
+            break
+
+    if len(solutions) > 0:
+        return np.array(solutions)
+    else:
+        return None
+
+
+def create_constrained_points_single_frame(
+        n_particles: int, 
+        previous_frame: np.array, 
+        current_frame: np.array, 
+        reach_index: np.array, 
+        num_solutions: int=10
+    ):
+    '''
+    为当前时刻生成solutions；下个状态未知；允许固定一些粒子
+    output:
+        - np.transpose(np.array(solutions), (1, 0, 2)): (n_particles, num_solutions, 3)
+    '''
+    fixed_points = {}
+    for i in range(n_particles):
+        if reach_index[i]:
+            fixed_points[i] = np.array([current_frame[i][0], current_frame[i][1], current_frame[i][2]])
+
+    cube_size = np.linalg.norm((current_frame - previous_frame), axis=1)
+    x_min, x_max, y_min, y_max, z_min, z_max = [-0.06, 0.06, -0.06, 0.06, -0.06+0.12, 0.06+0.12]
+    solutions = []
+    attempts = 0
+    while len(solutions) < num_solutions:
+        searched_points = {}
+        for i in range(n_particles): 
+            if not reach_index[i]:
+                # 在search area内随机生成一个点
+                movement = np.random.uniform(-cube_size[i]/(5.0), cube_size[i]/(5.0), 3)
+                point = np.array([min(max(current_frame[i][0] + movement[0], x_min), x_max), 
+                                  min(max(current_frame[i][1] + movement[1], y_min), y_max), 
+                                  min(max(current_frame[i][2] + movement[2], z_min), z_max)])
+                
+                # 检查与已生成点之间的椭球体距离约束
+                valid_fixed = is_valid_distance(point, fixed_points.values())
+                valid_searched = is_valid_distance(point, searched_points.values())
+                if valid_fixed and valid_searched:
+                    searched_points[i] = point
+
+        if (len(fixed_points) + len(searched_points)) == n_particles:
+            new_points = fixed_points | searched_points
+            sorted_keys = sorted(new_points.keys())
+            points_array = np.array([new_points[key] for key in sorted_keys])
+            solutions.append(points_array)
+
+        attempts += 1
+        if attempts >= num_solutions*100:
+            print(f"Gorkov solutions: 达到最大迭代次数, solution 数量: {len(solutions)}。")
+            break
+
+    if len(solutions) > 0:
+        return np.transpose(np.array(solutions), (1, 0, 2))
+    else:
+        return None
+    
+
+def is_valid_distance(point, other_points, scale=np.array([0.015, 0.015, 0.03])):
+    """检查 point 与 other_points 中所有点的归一化欧几里得距离平方和是否大于 1"""
+    return all(np.sum(((point - p) / scale) ** 2) > 1 for p in other_points)
 
 
 def create_constrained_points_2(N, cur_positions, last_positions, next_positions, max_total_attempts = 1000, max_attempts=1000):
@@ -330,29 +450,6 @@ def create_constrained_points_3(N, cur_positions, last_positions, next_positions
 
 
 #############################################################################################################################################################
-def angle_between(v1, v2):
-    """
-    计算两个向量之间的角度（以弧度为单位）。
-    """
-    # 计算向量的模
-    norm_v1 = np.linalg.norm(v1)
-    norm_v2 = np.linalg.norm(v2)
-
-    if norm_v1 == 0 or norm_v2 == 0:
-        # 如果其中一个向量为零向量，角度定义为0.0
-        return 0.0
-
-    # 计算v1和v2之间的余弦值
-    cos_theta = np.dot(v1, v2) / (norm_v1 * norm_v2)
-
-    # 处理可能将cos_theta推到[-1, 1]之外的数值误差
-    cos_theta = np.clip(cos_theta, -1.0, 1.0)
-
-    # 计算角度（以弧度为单位）
-    angle = np.arccos(cos_theta)
-    return angle
-
-
 def compute_angles_and_distances(trajectories, degrees=False):
     """
     计算沿每个轨迹的各段之间的角度变化和相邻关键点之间的距离。

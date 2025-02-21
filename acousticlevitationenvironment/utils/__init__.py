@@ -3,7 +3,7 @@ from .observation_space import MultiAgentObservationSpace
 from .create_points import create_points
 from .create_points import create_points_multistage
 from .optimal_pairing import optimal_pairing
-from .APF import check_and_correct_positions
+from .APF import check_and_correct_positions, check_and_correct_positions_fixed
 
 
 __all__ = [
@@ -12,5 +12,6 @@ __all__ = [
     "create_points",
     "create_points_multistage",
     "optimal_pairing",
-    "check_and_correct_positions"
+    "check_and_correct_positions",
+    "check_and_correct_positions_fixed"
 ]

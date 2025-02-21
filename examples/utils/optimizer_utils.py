@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Type
 from examples.utils.acoustic_utils import *
 
 
@@ -30,8 +31,10 @@ def max_displacement(segment, num=2):
 
 
 def max_displacement_v2(segment):
-    # segment 是形状 (num_particle, lengths, 3)
-
+    '''
+    input:
+        - segment: (num_particle, lengths, 3)
+    '''
     # 计算连续时间段的坐标差异
     displacement_diff = segment[:, 1:, :] - segment[:, :-1, :]  # 形状 (num_particle, lengths-1, 3)
     
@@ -45,6 +48,9 @@ def max_displacement_v2(segment):
 
 
 def interpolate_positions(coords, delta_time_original=0.1, delta_time_new=0.01):
+    '''
+    coords: (num_keypoints, num_particles, 3)
+    '''
     num_interpolations = int(delta_time_original / delta_time_new) - 1
     interpolated_coords = []
 
@@ -87,7 +93,7 @@ def safety_area(n_particles, coords):
     return collision
 
 
-def generate_solutions(n_particles, split_data, max_gorkov_idx, levitator):
+def generate_solutions_whole_paths(n_particles, split_data, max_gorkov_idx, levitator):
     # 对最弱key points生成100个潜在solutions，并排序
     candidate_solutions = np.transpose(
         create_constrained_points_1(
@@ -98,6 +104,80 @@ def generate_solutions(n_particles, split_data, max_gorkov_idx, levitator):
         ), 
         (1, 0, 2)
     )
+
+    # 计算 candidate_solutions 的 Gorkov
+    solutions_gorkov = levitator.calculate_gorkov(candidate_solutions)
+    # 找出每个 candidate_solutions 的最大 Gorkov
+    solutions_max_gorkov = np.max(solutions_gorkov, axis=1)
+    # 根据 Gorkov 对 candidate_solutions 从小到大排序
+    sorted_indices = np.argsort(solutions_max_gorkov)
+    sorted_solutions_max_gorkov = solutions_max_gorkov[sorted_indices]
+
+    return candidate_solutions, sorted_indices, sorted_solutions_max_gorkov
+
+
+def generate_solutions_segments(
+        n_particles: int, 
+        last_positions: np.array, 
+        current_positions: np.array, 
+        next_positions: np.array, 
+        levitator: Type['top_bottom_setup'], 
+        reach_index: np.array,
+        num_solutions: int=10
+    ):
+    '''
+    input:
+        - last_positions: (num_particles, 3)
+        - current_positions: (num_particles, 3)
+        - next_positions: (num_particles, 3)
+    '''    
+    # 对最弱key points生成100个潜在solutions，并排序
+    # candidate_solutions: (num_solutions, n_particles, 3)
+    candidate_solutions = create_constrained_points_5(
+        n_particles, 
+        last_positions, 
+        current_positions,
+        next_positions,
+        reach_index,
+        num_solutions
+    )
+    if candidate_solutions is None:
+        return None, None, None
+
+    # 计算 candidate_solutions 的 Gorkov
+    solutions_gorkov = levitator.calculate_gorkov_transposed(candidate_solutions)
+    # 找出每个 candidate_solutions 的最大 Gorkov
+    solutions_max_gorkov = np.max(solutions_gorkov, axis=1)
+    # 根据 Gorkov 对 candidate_solutions 从小到大排序
+    sorted_indices = np.argsort(solutions_max_gorkov)
+    sorted_solutions_max_gorkov = solutions_max_gorkov[sorted_indices]
+
+    return candidate_solutions, sorted_indices, sorted_solutions_max_gorkov
+
+
+def generate_solutions_single_frame(
+        n_particles: int, 
+        previous_frame: np.array, 
+        current_frame: np.array, 
+        levitator: Type['top_bottom_setup'], 
+        reach_index: np.array,
+        num_solutions: int=10
+    ):
+    '''
+    为某个已知时刻生成solutions
+    previous_frame: (num_particles, 3)
+    current_frame: (num_particles, 3)
+    '''
+    # 对最弱key points生成100个潜在solutions，并排序
+    candidate_solutions = create_constrained_points_single_frame(
+        n_particles, 
+        previous_frame, 
+        current_frame,
+        reach_index,
+        num_solutions
+    )
+    if candidate_solutions is None:
+        return None, None, None
 
     # 计算 candidate_solutions 的 Gorkov
     solutions_gorkov = levitator.calculate_gorkov(candidate_solutions)
