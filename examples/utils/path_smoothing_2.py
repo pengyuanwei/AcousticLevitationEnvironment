@@ -130,7 +130,7 @@ def visualize_all_particles(t, accelerations, velocities, trajectories, jerks=No
 
 def visualize_lengths(t, displacements):
     '''
-    同时可视化所有粒子的加速度、速度和轨迹
+    同时可视化所有粒子的位移
     '''
     num_particles = displacements.shape[0]
     colors = plt.cm.get_cmap('tab10', num_particles)  # 使用不同颜色绘制
@@ -451,14 +451,13 @@ def calculate_jerk(time_series, acceleration_data):
     return jerk_data
 
 
-def uniform_velocity_interpolation_simple(start: np.array, end: np.array, total_time: float, dt: float, velocities: np.array):
+def uniform_velocity_interpolation_simple(start: np.array, end: np.array, total_time: float, dt: float):
     '''
     输入：
         start: (N, 3) 每个粒子的起点
         end: (N, 3) 每个粒子的终点
         total_time: 总时间（所有粒子相同）
         dt: 时间步长
-        velocities: 初速度
     输出：
         t: 时间数组
         trajectories: (N, len(t), 3) 每个粒子的轨迹
@@ -468,7 +467,11 @@ def uniform_velocity_interpolation_simple(start: np.array, end: np.array, total_
 
     # 计算路径长度和方向
     L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
-    direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
+    # 初始化方向向量，默认所有为零向量
+    direction = np.zeros_like(end)
+    # 对于路径长度不为0的粒子，计算单位方向向量
+    nonzero = L > 0
+    direction[nonzero] = (end - start)[nonzero] / L[nonzero, np.newaxis]
 
     # 时间数组
     t = np.arange(0, total_time, dt)
@@ -481,3 +484,123 @@ def uniform_velocity_interpolation_simple(start: np.array, end: np.array, total_
     trajectories = segments[:, :-1, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
 
     return t[:-1], trajectories, final_v
+
+
+def uniform_velocity_interpolation_v2(
+        start: np.array, 
+        end: np.array, 
+        total_time: float, 
+        dt: float, 
+        velocities: np.array
+    ):
+    '''
+    输入：
+        start: (N, 3) 每个粒子的起点
+        end: (N, 3) 每个粒子的终点
+        total_time: 总时间（所有粒子相同）
+        dt: 时间步长
+        velocities: 上一段轨迹的最后一段位移的平均速度，用于计算加速度
+    输出：
+        t: 时间数组
+        accelerations: (N, len(t)) 每个粒子随时间的加速度
+        velocities: (N, len(t)) 每个粒子随时间的速度
+        trajectories: (N, len(t), 3) 每个粒子的轨迹
+    '''
+    # 粒子数量
+    N = start.shape[0]
+
+    # 计算路径长度和方向
+    L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
+    # 初始化方向向量，默认所有为零向量
+    direction = np.zeros_like(end)
+    # 对于路径长度不为0的粒子，计算单位方向向量
+    nonzero = L > 0
+    direction[nonzero] = (end - start)[nonzero] / L[nonzero, np.newaxis]
+
+    # 时间数组
+    t = np.arange(0, total_time, dt)
+    num_steps = len(t)
+
+    # 计算速度和加速度
+    v_0 = velocities
+    segments = np.array([np.linspace(0, ds, num_steps) for ds in L])
+    v_1 = segments[:, -1] / total_time
+    a_max = (v_1 - v_0) / dt  # (N,)
+    # 初始化结果数组
+    accelerations = np.zeros((N, num_steps))
+    velocities = np.zeros((N, num_steps))
+
+    # 时间点对应的加速度、速度和位移
+    for i, ti in enumerate(t):
+        if i == 0:
+            # 初始状态
+            v = v_0
+            a = 0.0
+        elif i == 1:
+            # 瞬时加速
+            v = v_1
+            a = a_max
+        else:
+            # 匀速阶段
+            v = v_1  # (N,)
+            a = 0.0
+
+        accelerations[:, i] = a
+        velocities[:, i] = v
+
+    # 计算三维轨迹
+    trajectories = segments[:, :-1, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
+
+    return t[:-1], accelerations[:, :-1], velocities[:, :-1], trajectories, v_1
+
+
+def uniform_dt_interpolation(trajectories: np.array, delta_times: np.array, base_dt: float = 0.0032):
+    """
+    对一组粒子的同步轨迹进行匀速直线插值，
+    使得输出轨迹的时间步长变为 base_dt (默认 0.0032 秒)，
+    同时计算每个插值点对应的累积时间，保证两者长度一致。
+
+    参数：
+        trajectories: np.array, 形状 (N, M, D)
+            N 个粒子在 M 个同步时刻的轨迹数据，每个时刻的坐标维数为 D。
+        delta_times: np.array, 形状 (M-1,)
+            每段轨迹（相邻时刻之间）的时间间隔，要求每个值都是 base_dt 的整数倍。
+        base_dt: float, 默认 0.0032
+            目标时间步长。
+
+    返回：
+        accumulated_time: np.array, 一维数组
+            每个插值点对应的累积时间，从 0 开始累加，与 new_trajectories 的时间步数匹配。
+        new_trajectories: np.array, 形状 (N, new_M, D)
+            经插值后的轨迹数据，时间步长均为 base_dt。
+    """
+    N, M, D = trajectories.shape
+    new_traj_list = []          # 用于存储各段插值后的轨迹数据
+    accumulated_time_list = []  # 用于存储各段对应的累积时间
+    current_time = 0.0          # 累计时间初始值
+
+    # 遍历每一段（相邻两个同步时刻之间）
+    for i in range(M - 1):
+        dt_segment = delta_times[i]
+        # 计算该段的步数（dt_segment 必须为 base_dt 的整数倍）
+        n_steps = int(round(dt_segment / base_dt))
+        # 生成 n_steps+1 个插值点（包括起点与终点）
+        interp_segment = np.linspace(trajectories[:, i, :], trajectories[:, i+1, :], n_steps+1, axis=1)
+
+        # 为避免各段连接处重复采样（重复包含终点），除最后一段外均舍去末端点
+        if i < M - 2:
+            t_segment = np.arange(n_steps) * base_dt
+            interp_segment = interp_segment[:, :-1, :]
+        else:
+            t_segment = np.arange(n_steps+1) * base_dt
+        
+        new_traj_list.append(interp_segment)
+        accumulated_time_list.append(current_time + t_segment)
+        # 更新累计时间
+        current_time += n_steps * base_dt
+
+    # 拼接各段数据
+    accumulated_time = np.concatenate(accumulated_time_list)
+    new_trajectories = np.concatenate(new_traj_list, axis=1)
+
+    return accumulated_time, new_trajectories

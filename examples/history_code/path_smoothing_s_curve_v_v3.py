@@ -5,17 +5,17 @@ from examples.utils.top_bottom_setup import top_bottom_setup
 from examples.utils.general_utils import *
 from examples.utils.acoustic_utils import *
 from examples.utils.optimizer_utils import *
-from examples.utils.path_smoothing_2 import *
+from examples.utils.path_smoothing import *
 
 
-# Modified based on the path_smoothing_s_curve_v_v1.py: 从现实的离散轨迹入手，实现开头结尾的S曲线速度插值
+# Modified based on the kinodynamics_analysis_13.py: 任意初始速度的匀加速直线运动计算，开头结尾的S曲线速度插值
 
 
 if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
     model_name = '20_19_98_99/planner_v2'
-    num_file = 30
+    num_file = 1
     file_name_0 = 'path'
     file_name_1 = 'smoothed_path'
 
@@ -64,46 +64,70 @@ if __name__ == '__main__':
 
 
         # 第一段匀加速
-        sub_t, _, _, sub_trajectories = smooth_trajectories_arbitrary_initial_velocity(
+        sub_t, sub_accelerations, sub_velocities, sub_trajectories = smooth_trajectories_arbitrary_initial_velocity(
             split_data[:, 0, 2:], split_data[:, 1, 2:], delta_time[0], dt=dt, velocities=sub_initial_v
         )
 
         sub_t += sub_initial_t
         sub_initial_t = sub_t[-1] + dt
+        sub_initial_v = sub_velocities[:, -1]
 
         t.append(sub_t)
+        accelerations.append(sub_accelerations)
+        velocities.append(sub_velocities)
         trajectories.append(sub_trajectories)  
 
-        # # 中间段匀速直线
-        # for i in range(1, split_data.shape[1]-2):
-        #     sub_t, sub_trajectories, sub_initial_v = uniform_velocity_interpolation_simple(
-        #         start=split_data[:, i, 2:], end=split_data[:, i+1, 2:], total_time=delta_time[i], dt=dt, velocities=sub_initial_v
-        #     )
+        # 中间段匀速直线
+        for i in range(1, split_data.shape[1]-2):
+            sub_t, sub_accelerations, sub_velocities, sub_trajectories = uniform_velocity_interpolation(
+                start=split_data[:, i, 2:], end=split_data[:, i+1, 2:], total_time=delta_time[i], dt=dt, velocities=sub_initial_v
+            )
 
-        #     sub_t += sub_initial_t
-        #     sub_initial_t = sub_t[-1] + dt
+            sub_t += sub_initial_t
+            sub_initial_t = sub_t[-1] + dt
+            sub_initial_v = sub_velocities[:, -1]
 
-        #     t.append(sub_t)
-        #     trajectories.append(sub_trajectories)  
+            t.append(sub_t)
+            accelerations.append(sub_accelerations)
+            velocities.append(sub_velocities)
+            trajectories.append(sub_trajectories)  
 
-        # # 最后一段匀减速
-        # sub_t, _, _, sub_trajectories = s_curve_smoothing_with_zero_end_velocity_simple(
-        #     split_data[:, -2, 2:], split_data[:, -1, 2:], delta_time[-1], dt=dt, velocities=sub_initial_v
-        # )
+        # 最后一段匀减速
+        sub_t, sub_accelerations, sub_velocities, sub_trajectories = s_curve_smoothing_with_zero_end_velocity(
+            split_data[:, -2, 2:], split_data[:, -1, 2:], delta_time[0], dt=dt, velocities=sub_initial_v
+        )
+        
+        sub_t += sub_initial_t
+        sub_initial_t = sub_t[-1] + dt
+        sub_initial_v = sub_velocities[:, -1]
 
-        # sub_t += sub_initial_t
-        # sub_initial_t = sub_t[-1] + dt
+        t.append(sub_t)
+        accelerations.append(sub_accelerations)
+        velocities.append(sub_velocities)
+        trajectories.append(sub_trajectories)
 
-        # t.append(sub_t)
-        # trajectories.append(sub_trajectories)
 
-        # # 将所有子数组沿 axis=1 拼接成一个总数组
-        # sum_t = np.concatenate(t, axis=0)
-        # sum_traj = np.concatenate(trajectories, axis=1)
+        # 将所有子数组沿 axis=1 拼接成一个总数组
+        sum_t = np.concatenate(t, axis=0)
+        sum_a = np.concatenate(accelerations, axis=1)
+        sum_v = np.concatenate(velocities, axis=1)
+        sum_traj = np.concatenate(trajectories, axis=1)
 
-        # # displacements = np.zeros((sum_traj.shape[0], sum_traj.shape[1]))
-        # # displacements[:, 1:] = np.linalg.norm(sum_traj[:, 1:, :] - sum_traj[:, :-1, :], axis=2)  # (N,) 每个粒子的总路径长度
-        # # visualize_lengths(sum_t, displacements)
+        sum_jerk = calculate_jerk(sum_t, sum_a)
+        zero_array = np.zeros((sum_jerk.shape[0], 1))
+        sum_jerk = np.concatenate([zero_array, sum_jerk], axis=1)
+
+        # 可视化所有粒子
+        visualize_all_particles(sum_t, sum_a, sum_v, sum_traj, jerks=sum_jerk)
+
+
+        # print(sum_traj.shape)
+        # displacements = np.zeros((sum_traj.shape[0], sum_traj.shape[1]))
+        # displacements[:, 1:] = np.linalg.norm(sum_traj[:, 1:, :] - sum_traj[:, :-1, :], axis=2)  # (N,) 每个粒子的总路径长度
+        # print(displacements.shape)
+        # print(sum_t.shape)
+
+        # visualize_lengths(sum_t, displacements)
 
 
         # final_traj = np.zeros((sum_traj.shape[0], sum_traj.shape[1], 5))

@@ -573,9 +573,13 @@ def uniform_velocity_interpolation(start: np.array, end: np.array, total_time: f
     # 粒子数量
     N = start.shape[0]
 
-    # 计算路径长度和方向
+    # 计算路径长度
     L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
-    direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
+    # 初始化方向向量，默认所有为零向量
+    direction = np.zeros_like(end)
+    # 对于路径长度不为0的粒子，计算单位方向向量
+    nonzero = L > 0
+    direction[nonzero] = (end - start)[nonzero] / L[nonzero, np.newaxis]
 
     # 初速度
     v_0 = velocities

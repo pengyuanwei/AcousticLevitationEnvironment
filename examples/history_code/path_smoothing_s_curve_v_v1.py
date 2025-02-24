@@ -14,10 +14,10 @@ from examples.utils.path_smoothing_2 import *
 if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
-    model_name = '20_19_98_99'
-    num_file = 30
-    file_name_0 = 'optimised_N_data'
-    file_name_1 = 'optimised_N_1_data'
+    model_name = '20_19_98_99/planner_v2'
+    num_file = 1
+    file_name_0 = 'path'
+    file_name_1 = 'smoothed_path'
 
     levitator = top_bottom_setup(n_particles)
 
@@ -77,7 +77,7 @@ if __name__ == '__main__':
         # 中间段匀速直线
         for i in range(1, split_data.shape[1]-2):
             sub_t, sub_trajectories, sub_initial_v = uniform_velocity_interpolation_simple(
-                start=split_data[:, i, 2:], end=split_data[:, i+1, 2:], total_time=delta_time[i], dt=dt, velocities=sub_initial_v
+                start=split_data[:, i, 2:], end=split_data[:, i+1, 2:], total_time=delta_time[i], dt=dt
             )
 
             sub_t += sub_initial_t
@@ -114,3 +114,6 @@ if __name__ == '__main__':
         # 保存修改后的轨迹
         file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
         save_path_v2(file_path, n_particles, final_traj)
+
+
+        visualize_all_particles(t, accelerations, velocities, trajectories, jerks=None, show_paths=False)

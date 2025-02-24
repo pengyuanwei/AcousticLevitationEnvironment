@@ -123,7 +123,8 @@ def create_constrained_points_5(
         current_positions: np.array,
         next_positions: np.array, 
         reach_index: np.array, 
-        num_solutions: int=10
+        num_solutions: int=10,
+        search_factor: float=10.0
     ):
     '''
     下个状态已知；允许固定一些粒子
@@ -147,7 +148,7 @@ def create_constrained_points_5(
         for i in range(n_particles): 
             if not reach_index[i]:
                 # 在search area内随机生成一个点
-                movement = np.random.uniform(-cube_size[i]/(10.0), cube_size[i]/(10.0), 3)
+                movement = np.random.uniform(-cube_size[i]/search_factor, cube_size[i]/search_factor, 3)
                 point = np.array([min(max(search_area_center[i][0] + movement[0], x_min), x_max), 
                                 min(max(search_area_center[i][1] + movement[1], y_min), y_max), 
                                 min(max(search_area_center[i][2] + movement[2], z_min), z_max)])
@@ -680,7 +681,11 @@ def compute_delta_angles(front_keypoints, current_keypoints, back_keypoints, deg
     return delta_angles
 
 
-def positions_check(cur_positions, last_positions, next_positions):
+def positions_check(
+        cur_positions, 
+        last_positions, 
+        next_positions
+    ):
     cube_size = np.linalg.norm((next_positions - last_positions), axis=1)
     search_area_center = (next_positions + last_positions) / 2.0
 

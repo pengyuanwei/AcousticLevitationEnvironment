@@ -123,7 +123,8 @@ def generate_solutions_segments(
         next_positions: np.array, 
         levitator: Type['top_bottom_setup'], 
         reach_index: np.array,
-        num_solutions: int=10
+        num_solutions: int=10, 
+        search_factor: float=10
     ):
     '''
     input:
@@ -139,7 +140,8 @@ def generate_solutions_segments(
         current_positions,
         next_positions,
         reach_index,
-        num_solutions
+        num_solutions,
+        search_factor
     )
     if candidate_solutions is None:
         return None, None, None

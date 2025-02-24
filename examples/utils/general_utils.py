@@ -69,6 +69,10 @@ def save_path_v2(file_path, n_particles, split_data):
 
 
 def read_csv_file(file_path):
+    if not os.path.exists(file_path):
+        print(f"错误：文件路径无效 -> {file_path}")
+        return None
+    
     data_list = []
     with open(file_path, 'r', newline='', encoding='utf-8') as file:
         reader = csv.reader(file)
@@ -199,17 +203,17 @@ def generate_paths_smoothing(
 
     # (num_particles, paths_length, 3)
     paths_array = np.array(paths)
+    last_unique_indexs = []
+    fixed_locations = np.ones((paths_array.shape[0], paths_array.shape[1], 1))    
     if not truncated:
-        fixed_locations = np.ones((paths_array.shape[0], paths_array.shape[1], 1))    
-        last_unique_indexs = []
         for i in range(n_particles):
             last_unique_index = paths_array.shape[1] - 1
             # 从末尾开始，找到最后一个与前一个不同的点的索引
-            while last_unique_index > 0 and np.array_equal(paths_array[i][last_unique_index], paths_array[i][last_unique_index - 1]):
+            while last_unique_index > 0 and np.allclose(paths_array[i][last_unique_index], paths_array[i][last_unique_index - 1]):
                 last_unique_index -= 1
             last_unique_indexs.append(last_unique_index)
             fixed_locations[i, :last_unique_index+1] = 0.0
-        # 转置为 (paths_length, num_particles, 3)
+        # 转置为 (paths_length, num_particles, 1)
         fixed_locations = np.transpose(fixed_locations, (1, 0, 2))
 
         # 修正倒数第二个keypoint
@@ -233,17 +237,9 @@ def generate_paths_smoothing(
                         angle = angle_between(vectors[-1], vectors[-2])
                         print(f"Path smoothing: the corrected direction change: {angle}")
 
-        # Paths smoothing
-        padded_paths = path_smoothing(n_particles, paths_array, num_interpolations=10)
-        # 转置后形状为 (paths_length, n_particles, 3)
-        smoothed_paths = np.transpose(padded_paths, (1, 0, 2))
-    else:
-        smoothed_paths = np.transpose(paths_array, (1, 0, 2))
-
     # 转置后形状为 (paths_length, n_particles, 3)
     original_paths = np.transpose(paths_array, (1, 0, 2))
-
-    return original_paths, smoothed_paths, truncated
+    return original_paths, last_unique_indexs, fixed_locations, truncated
 
 
 def generate_replan_paths(env, agent, n_particles, max_timesteps, points):
@@ -331,13 +327,13 @@ def generate_replan_paths_smoothing(
 
     # (num_particles, paths_length, 3)
     paths_array = np.array(paths)
+    last_unique_indexs = []
+    fixed_locations = np.ones((paths_array.shape[0], paths_array.shape[1], 1))    
     if not truncated:
-        fixed_locations = np.ones((paths_array.shape[0], paths_array.shape[1], 1))    
-        last_unique_indexs = []
         for i in range(n_particles):
             last_unique_index = paths_array.shape[1] - 1
             # 从末尾开始，找到最后一个与前一个不同的点的索引
-            while last_unique_index > 0 and np.array_equal(paths_array[i][last_unique_index], paths_array[i][last_unique_index - 1]):
+            while last_unique_index > 0 and np.allclose(paths_array[i][last_unique_index], paths_array[i][last_unique_index - 1]):
                 last_unique_index -= 1
             last_unique_indexs.append(last_unique_index)
             fixed_locations[i, :last_unique_index+1] = 0.0
@@ -370,17 +366,9 @@ def generate_replan_paths_smoothing(
                         angle = angle_between(vectors[-1], vectors[-2])
                         print(f"Path smoothing: the corrected direction change: {angle}")
 
-        # Paths smoothing
-        padded_paths = path_smoothing(n_particles, paths_array, num_interpolations=10)
-        # 转置后形状为 (paths_length, n_particles, 3)
-        smoothed_paths = np.transpose(padded_paths, (1, 0, 2))
-    else:
-        smoothed_paths = np.transpose(paths_array, (1, 0, 2))
-
     # 转置后形状为 (paths_length, n_particles, 3)
     original_paths = np.transpose(paths_array, (1, 0, 2))
-
-    return original_paths, smoothed_paths, truncated
+    return original_paths, last_unique_indexs, fixed_locations, truncated
 
 
 def show(num_particles, particle_paths):
@@ -699,3 +687,54 @@ def nonAcoustic_correction(
         print("Non-acoustic path smoothing: 倒数第二个keypoint修正失败！")
 
     return current_positions
+
+
+def uniform_accelerated_interpolation(initial_paths: np.array, total_time: np.array, last_unique_indexs: list):
+    '''
+    对提前到达终点的粒子最后一段位移进行匀减速插值，使得所有粒子同步到达终点：
+    input:
+        - initial_paths: 初始轨迹, 形状为 (num_particles, paths_length, 3)
+        - total_time: 轨迹的累计时间, 形状为 (paths_length,)
+        - last_unique_indexs: 每个粒子到达终点时的索引, 长度为 num_particles
+    output:
+        - corrected_paths: 修正后的轨迹, 形状为 (num_particles, new_paths_length, 3)
+        - new_total_time: 轨迹的新的累计时间, 形状为 (new_paths_length,)
+    '''
+
+
+def uniform_accelerated_interpolation(initial_paths: np.array, total_time: np.array, last_unique_indexs: list):
+    '''
+    对提前到达终点的粒子最后一段位移进行匀减速插值，使得所有粒子同步到达终点：
+    input:
+        - initial_paths: 初始轨迹, 形状为 (num_particles, paths_length, 3)
+        - total_time: 轨迹的累计时间, 形状为 (paths_length,)
+        - last_unique_indexs: 每个粒子到达终点时的索引, 长度为 num_particles
+    output:
+        - corrected_paths: 修正后的轨迹, 形状为 (num_particles, new_paths_length, 3)
+    '''
+    num_particles, paths_length, _ = initial_paths.shape
+    T_end = total_time[-1]
+    
+    # 初始化修正后的轨迹，初步复制原始轨迹
+    corrected_paths = np.copy(initial_paths)
+    
+    # 对每个粒子进行处理：
+    for i in range(num_particles):
+        last_idx = last_unique_indexs[i]
+        # 如果该粒子已经在最后时刻到达，则无需插值
+        if last_idx >= paths_length - 1:
+            continue
+        
+        # 提前到达的粒子：保留前部分轨迹不变，从 last_idx 开始进行匀减速插值
+        p0 = initial_paths[i, last_idx-1, :]       # 插值起点
+        destination = initial_paths[i, -1, :]      # 插值终点
+        t0 = total_time[last_idx-1]                # 起始时间
+        delta_T = T_end - t0                       # 剩余时间
+        
+        # 对 last_idx 到最后的每个时间点，用归一化时间计算新位置
+        for j in range(last_idx-1, paths_length):
+            tau = (total_time[j] - t0) / delta_T  # 归一化时间, 范围 [0, 1]
+            # 匀减速插值公式，保证起点位置为 p0，终点位置为 destination 且末端速度为0
+            corrected_paths[i, j, :] = p0 + (destination - p0) * (2 * tau - tau ** 2)
+        
+    return corrected_paths

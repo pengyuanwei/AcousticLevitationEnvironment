@@ -4,18 +4,20 @@ import gymnasium as gym
 from acoustorl import MADDPG
 
 from examples.utils.general_utils import *
+from examples.utils.acoustic_utils import *
 from examples.utils.optimizer_utils import *
+from examples.utils.path_smoothing_2 import *
 from examples.utils.top_bottom_setup import top_bottom_setup
 
 '''
-Change from generate_path_3.py: 保存paths
-需要提前确定的参数：
+Change from generate_path_4.py: 移除path smoothing, 保存paths
+路径生成：需要提前确定的参数
     - 时间步长 delta t
     - Gorkov optimization:
         - Candidate solution 的数量
         - Search domain 的半径
-    - Path smoothing:
-        - Keypoints 之间插入的点的数量
+路径修正：同时到达终点
+Gorkov优化: 固定一些粒子进行修正
 '''
 
 if __name__ == "__main__":
@@ -67,39 +69,39 @@ if __name__ == "__main__":
         agents.append(agent)
 
     delta_time_2 = delta_time * math.sqrt(3) / 10.0
-    success_num = 100
-    for n in range(30):  
+    success_num = 1000
+    debug = False
+    for n in range(30, 1000):  
         print(f'-----------------------The {n} th set of paths-----------------------')  
-        original_paths, paths, failure = generate_paths_smoothing(global_env, agents[0], n_particles, max_timesteps, levitator)            
+        original_paths, last_unique_indexs, fixed_locations, failure = generate_paths_smoothing(global_env, agents[0], n_particles, max_timesteps, levitator)            
 
         if failure:
             print('1st planner failure!')
-            _, paths, failure = generate_replan_paths_smoothing(replan_env, agents[1], n_particles, max_timesteps, original_paths, levitator)
+            original_paths, last_unique_indexs, fixed_locations, failure = generate_replan_paths_smoothing(replan_env, agents[1], n_particles, max_timesteps, original_paths, levitator)
 
             if failure:
                 print('2nd planner failure!')
-                _, paths, failure = generate_replan_paths_smoothing(replan_env, agents[2], n_particles, max_timesteps, original_paths, levitator)
+                original_paths, last_unique_indexs, fixed_locations, failure = generate_replan_paths_smoothing(replan_env, agents[2], n_particles, max_timesteps, original_paths, levitator)
 
                 if failure:
                     print('3rd planner failure!')
-                    _, paths, failure = generate_replan_paths_smoothing(replan_env, agents[3], n_particles, max_timesteps, original_paths, levitator)
+                    original_paths, last_unique_indexs, fixed_locations, failure = generate_replan_paths_smoothing(replan_env, agents[3], n_particles, max_timesteps, original_paths, levitator)
 
                     if failure:
                         print('4th planner failure!')
-                        _, paths, failure = generate_replan_paths_smoothing(nonAcoustic_replan_env, agents[0], n_particles, max_timesteps, original_paths)
-                        show(n_particles, np.transpose(paths, (1, 0, 2)))
+                        original_paths, last_unique_indexs, fixed_locations, failure = generate_replan_paths_smoothing(nonAcoustic_replan_env, agents[0], n_particles, max_timesteps, original_paths)
 
                         if failure:
                             print('5th planner failure!')
-                            _, paths, failure = generate_replan_paths_smoothing(nonAcoustic_replan_env, agents[1], n_particles, max_timesteps, original_paths)
+                            original_paths, last_unique_indexs, fixed_locations, failure = generate_replan_paths_smoothing(nonAcoustic_replan_env, agents[1], n_particles, max_timesteps, original_paths)
 
                             if failure:
                                 print('6th planner failure!')
-                                _, paths, failure = generate_replan_paths_smoothing(nonAcoustic_replan_env, agents[2], n_particles, max_timesteps, original_paths)
+                                original_paths, last_unique_indexs, fixed_locations, failure = generate_replan_paths_smoothing(nonAcoustic_replan_env, agents[2], n_particles, max_timesteps, original_paths)
 
                                 if failure:
                                     print('7th planner failure!')
-                                    _, paths, failure = generate_replan_paths_smoothing(nonAcoustic_replan_env, agents[3], n_particles, max_timesteps, original_paths)
+                                    original_paths, last_unique_indexs, fixed_locations, failure = generate_replan_paths_smoothing(nonAcoustic_replan_env, agents[3], n_particles, max_timesteps, original_paths)
 
                                     if failure:
                                         print('8th planner failure!')
@@ -108,7 +110,7 @@ if __name__ == "__main__":
         if not failure:
             # 计算时间序列，要求每个片段的最大速度不超过最大速度（0.1m/s）
             # (num_particles, paths_length, 3)
-            paths = np.transpose(paths, (1, 0, 2))
+            paths = np.transpose(original_paths, (1, 0, 2))
             max_displacements = max_displacement_v2(paths)
             diff_time = max_displacements / 0.1
             # 向上取整为 32.0/10000 的整数倍
@@ -117,12 +119,172 @@ if __name__ == "__main__":
             # 计算累计时间并保存
             total_time = np.insert(np.cumsum(rounded_diff_time), 0, 0.0)
             # (paths_length,) -> (num_particles, paths_length, 1)
-            total_times = np.tile(total_time, (n_particles, 1))[:, :, np.newaxis]
+            total_time_broadcast = np.tile(total_time, (n_particles, 1))[:, :, np.newaxis]
             # 合并时间和路径
-            trajectories = np.concatenate((total_times, paths), axis=2)
-            print(trajectories.shape)
+            trajectories = np.concatenate((total_time_broadcast, paths), axis=2)
+
+            # # 保存修改后的轨迹
+            # file_path = os.path.join(save_dir, f'{file_name}_{str(n)}.csv')
+            # save_path_v2(file_path, n_particles, trajectories)
+
+            # (num_particles, paths_length, 3)
+            corrected_paths = uniform_accelerated_interpolation(paths, total_time, last_unique_indexs)
+            
+            if debug:
+                # 输入形状 (n_particles, n_keypoints, 5)
+                displacements = np.zeros((corrected_paths.shape[0], corrected_paths.shape[1]))
+                displacements[:, 1:] = np.linalg.norm(corrected_paths[:, 1:, :] - corrected_paths[:, :-1, :], axis=2)  # (N,) 每个粒子的总路径长度
+                max_displacements = np.max(displacements, axis=0)
+                print(max_displacements)
+                # Calculate the Gorkov again
+                gorkov = levitator.calculate_gorkov(corrected_paths)
+                max_gorkov = np.max(gorkov, axis=1)
+                print('Max Gorkov before random search:', max_gorkov)
+                show(n_particles, corrected_paths)
+
+            for i in range(n_particles):
+                fixed_locations[last_unique_indexs[i], i] = 1.0
+            # 使用随机搜索来优化最弱Gorkov的timesteps
+            for m in range(10):
+                # Calculate Gorkov
+                gorkov = levitator.calculate_gorkov(corrected_paths)
+                # Find the worst state
+                max_gorkov_idx, max_gorkov = calculate_max_gorkov(gorkov)
+
+                # Print initial Gorkov values
+                if debug:       
+                    print(f'\n-----------------------The iteration {m}-----------------------')
+                    print("Worst gorkov idx:", max_gorkov_idx)
+                    print("Worst gorkov value:", max_gorkov[max_gorkov_idx])
+
+                last_positions = corrected_paths[:, max_gorkov_idx-1, :]
+                worst_positions = corrected_paths[:, max_gorkov_idx, :]
+                next_positions = corrected_paths[:, max_gorkov_idx+1, :]
+                # candidate_solutions: (num_solutions, n_particles, 3)
+                candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions_segments(
+                    n_particles, last_positions, worst_positions, next_positions, levitator, fixed_locations[max_gorkov_idx], num_solutions=100, search_factor=5.0
+                )
+
+                # 依次取出 candidate_solutions，先检查是否Gorkov更好，再检查是否满足距离约束
+                # 分别求出前后两个 segment 的最大位移，用于缩放时间
+                re_plan_segment = np.transpose(corrected_paths[:, max_gorkov_idx-1:max_gorkov_idx+2, :], (1, 0, 2))
+
+                for i in range(candidate_solutions.shape[0]):
+                    # 如果 candidate_solutions 的 Gorkov 比原坐标的更差，则 break
+                    if sorted_solutions_max_gorkov[i] > max_gorkov[max_gorkov_idx]:
+                        if debug:
+                            print('No better candidate than original!')
+                        break
+
+                    re_plan_segment[1:2, :, :] = candidate_solutions[sorted_indices[i]:sorted_indices[i]+1, :, :]
+
+                    for k in range(2):
+                        segment = re_plan_segment[k:(k+2)]
+                        interpolated_coords = interpolate_positions(segment)
+                        
+                        for j in range(interpolated_coords.shape[0]):
+                            collision = safety_area(n_particles, interpolated_coords[j])
+                            if np.any(collision != 0):
+                                break
+                        if np.any(collision != 0):
+                            if debug:
+                                print("Collision!")
+                            break
+
+                    if np.all(collision == 0):
+                        if debug:
+                            print("Best candidate idx (start from 0):", i)
+                        corrected_paths[:, max_gorkov_idx, :] = np.copy(candidate_solutions[sorted_indices[i], :, :])
+                        break
+            
+            if debug:
+                # 输入形状 (n_particles, n_keypoints, 5)
+                displacements = np.zeros((corrected_paths.shape[0], corrected_paths.shape[1]))
+                displacements[:, 1:] = np.linalg.norm(corrected_paths[:, 1:, :] - corrected_paths[:, :-1, :], axis=2)  # (N,) 每个粒子的总路径长度
+                max_displacements = np.max(displacements, axis=0)
+                print(max_displacements)
+                # Calculate the Gorkov again
+                gorkov = levitator.calculate_gorkov(corrected_paths)
+                max_gorkov = np.max(gorkov, axis=1)
+                print('Max Gorkov after random search:', max_gorkov)
+                show(n_particles, corrected_paths)
+
+            # 检查所有关键点是否在圆圈内，如果不在，对其进行优化
+            for m in range(1, corrected_paths.shape[1] - 1):
+                last_positions = corrected_paths[:, m-1, :]
+                worst_positions = corrected_paths[:, m, :]
+                next_positions = corrected_paths[:, m+1, :]
+                if positions_check(worst_positions, last_positions, next_positions):
+                    if debug:
+                        print(f'\n-----------------------The point {m}-----------------------')
+                    # Calculate the Gorkov
+                    gorkov = levitator.calculate_gorkov(corrected_paths)
+                    max_gorkov = np.max(gorkov, axis=1)
+
+                    # candidate_solutions: (num_solutions, n_particles, 3)
+                    candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions_segments(
+                        n_particles, last_positions, worst_positions, next_positions, levitator, fixed_locations[m], num_solutions=100, search_factor=5.0
+                    )
+
+                    # 依次取出solutions，先检查是否Gorkov更好，再检查是否满足距离约束
+                    # 分别求出两个segment的最大位移，用于缩放时间                
+                    re_plan_segment = np.transpose(corrected_paths[:, m-1:m+2, :], (1, 0, 2))
+
+                    for i in range(candidate_solutions.shape[0]):
+                        # 检查solutions的Gorkov是否比原坐标更差
+                        if sorted_solutions_max_gorkov[i] > max_gorkov[m]:
+                            if debug:
+                                print('Worse gorkov!')
+                            
+                        re_plan_segment[1:2, :, :] = candidate_solutions[sorted_indices[i]:sorted_indices[i]+1, :, :]
+
+                        for k in range(2):
+                            segment = re_plan_segment[k:(k+2)]
+                            interpolated_coords = interpolate_positions(segment)
+                            
+                            for j in range(interpolated_coords.shape[0]):
+                                collision = safety_area(n_particles, interpolated_coords[j])
+                                if np.any(collision != 0):
+                                    break
+                            if np.any(collision != 0):
+                                if debug:
+                                    print("Collision!")
+                                break
+
+                        if np.all(collision == 0):
+                            if debug:
+                                print("Best candidate idx (start from 0):", i)
+                            corrected_paths[:, m, :] = np.copy(candidate_solutions[sorted_indices[i], :, :])
+                            break
+            
+            if debug:
+                # 输入形状 (n_particles, n_keypoints, 5)
+                displacements = np.zeros((corrected_paths.shape[0], corrected_paths.shape[1]))
+                displacements[:, 1:] = np.linalg.norm(corrected_paths[:, 1:, :] - corrected_paths[:, :-1, :], axis=2)  # (N,) 每个粒子的总路径长度
+                max_displacements = np.max(displacements, axis=0)
+                print(max_displacements)
+                # Calculate the Gorkov again
+                gorkov = levitator.calculate_gorkov(corrected_paths)
+                max_gorkov = np.max(gorkov, axis=1)
+                print('Max Gorkov after random search:', max_gorkov)
+                show(n_particles, corrected_paths)
+
+            # 计算时间序列，要求每个片段的最大速度不超过最大速度（0.1m/s）
+            # corrected_paths: (num_particles, paths_length, 3)
+            max_displacements = max_displacement_v2(corrected_paths)
+            diff_time = max_displacements / 0.1
+            # 向上取整为 32.0/10000 的整数倍
+            step = 32.0 / 10000
+            rounded_diff_time = np.ceil(diff_time / step) * step
+            # 计算累计时间并保存
+            total_time = np.insert(np.cumsum(rounded_diff_time), 0, 0.0)
+            # (paths_length,) -> (num_particles, paths_length, 1)
+            total_time_broadcast = np.tile(total_time, (n_particles, 1))[:, :, np.newaxis]
+            # 合并时间和路径
+            trajectories = np.concatenate((total_time_broadcast, corrected_paths), axis=2)
+            
             # 保存修改后的轨迹
             file_path = os.path.join(save_dir, f'{file_name}_{str(n)}.csv')
             save_path_v2(file_path, n_particles, trajectories)
 
-    print(f'The success number: {success_num}')
+    print(f'\nThe success number: {success_num}')
