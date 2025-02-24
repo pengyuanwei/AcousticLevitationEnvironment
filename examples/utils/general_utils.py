@@ -68,6 +68,34 @@ def save_path_v2(file_path, n_particles, split_data):
     file_instance.close() 
 
 
+def save_path_v3(file_path, n_particles, sum_t, sum_traj):
+    '''
+    input:
+        - split_data: (num_particles, paths_length, 4)
+    '''
+    # 保存修改后的轨迹
+    split_data = np.zeros((sum_traj.shape[0], sum_traj.shape[1], 4))
+    split_data[:, :, 0] = sum_t
+    split_data[:, :, 1:] = sum_traj
+
+    file_instance = open(file_path, "w", encoding="UTF8", newline='')
+    csv_writer = csv.writer(file_instance)
+
+    for i in range(n_particles):
+        header = ['Agent ID', i]
+        row_1 = ['Number of', split_data.shape[1]]
+
+        csv_writer.writerow(header)
+        csv_writer.writerow(row_1)
+
+        rows = []
+        for j in range(split_data.shape[1]):
+            rows = [j, split_data[i][j][0], split_data[i][j][1], split_data[i][j][2], split_data[i][j][3]]
+            csv_writer.writerow(rows)
+
+    file_instance.close()
+
+
 def read_csv_file(file_path):
     if not os.path.exists(file_path):
         print(f"错误：文件路径无效 -> {file_path}")

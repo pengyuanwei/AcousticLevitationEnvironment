@@ -14,8 +14,9 @@ if __name__ == '__main__':
     model_name = '20_19_98_99/planner_v2'
     num_file = 30
     file_name_0 = 'path'
-    file_name_1 = 'new_smoothed_path'
-    file_name_2 = 'new_new_smoothed_path'
+    file_name_1 = 'smoothed_path'
+    file_name_2 = 'new_smoothed_path'
+    file_name_3 = 'new_new_smoothed_path'
 
     computation_time = []
     for n in range(num_file):
@@ -48,9 +49,14 @@ if __name__ == '__main__':
         delta_time[0] *= 2
         delta_time[-1] *= 2
 
-        original_max_a = kinodynamics_analysis(n_particles, split_data, delta_time)
+        original_max_a, sum_t, sum_traj = kinodynamics_analysis(n_particles, split_data, delta_time, save=True)
         print('The original sum acceleration:', np.sum(original_max_a))
         print('The original max acceleration:', np.max(original_max_a))
+
+        # 保存修改后的轨迹
+        file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
+        save_path_v3(file_path, n_particles, sum_t, sum_traj)
+
 
         time_factor = [1.25, 1.5, 1.75, 2.0]
         max_max_a = np.zeros((len(time_factor), delta_time.shape[0]-2))
@@ -80,13 +86,9 @@ if __name__ == '__main__':
             max_a, sum_t, sum_traj = kinodynamics_analysis(n_particles, split_data, delta_time, save=True)
             print('The new sum acceleration:', np.sum(max_a))
 
-            final_traj = np.zeros((sum_traj.shape[0], sum_traj.shape[1], 4))
-            final_traj[:, :, 0] = sum_t
-            final_traj[:, :, 1:] = sum_traj
-
             # 保存修改后的轨迹
-            file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
-            save_path_v2(file_path, n_particles, final_traj)
+            file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_2}_{str(n)}.csv')
+            save_path_v3(file_path, n_particles, sum_t, sum_traj)
 
 
             # 根据 max a_max 进行优化
@@ -98,10 +100,6 @@ if __name__ == '__main__':
                 max_a, sum_t, sum_traj = kinodynamics_analysis(n_particles, split_data, delta_time, save=True)
                 print('The new max acceleration:', np.max(max_a))
 
-                final_traj = np.zeros((sum_traj.shape[0], sum_traj.shape[1], 4))
-                final_traj[:, :, 0] = sum_t
-                final_traj[:, :, 1:] = sum_traj
-
                 # 保存修改后的轨迹
-                file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_1}_{str(n)}.csv')
-                save_path_v2(file_path, n_particles, final_traj)
+                file_path = os.path.join(global_model_dir_1, model_name, f'{file_name_2}_{str(n)}.csv')
+                save_path_v3(file_path, n_particles, sum_t, sum_traj)
