@@ -63,10 +63,12 @@ if __name__ == "__main__":
         agents.append(agent)
 
     delta_time_2 = delta_time * math.sqrt(3) / 10.0
-    success_num = 1000
+    total_test_num = 10
+    success_num = 10
     debug = False
     times = []
-    for n in range(10):  
+    makespan = []
+    for n in range(total_test_num):  
         start_time = time.time()  # 开始计时
         print(f'-----------------------The {n} th set of paths-----------------------')  
         original_paths, last_unique_indexs, fixed_locations, failure = generate_paths_smoothing(global_env, agents[0], n_particles, max_timesteps, levitator)            
@@ -116,6 +118,7 @@ if __name__ == "__main__":
             total_time = np.insert(np.cumsum(rounded_diff_time), 0, 0.0)
             # (num_particles, paths_length, 3)
             corrected_paths = uniform_accelerated_interpolation(paths, total_time, last_unique_indexs)
+            makespan.append(total_time[-1])
             
         end_time = time.time()  # 记录结束时间
         elapsed_time = end_time - start_time  # 计算单次运行时间
@@ -125,4 +128,8 @@ if __name__ == "__main__":
     std_time = np.std(times)
     print(f"平均时间: {mean_time:.6f} 秒")
     print(f"标准差: {std_time:.6f} 秒")
-    print(f'The success number: {success_num}')
+    mean_makespan = np.mean(makespan)
+    std_makespan = np.std(makespan)
+    print(f"平均makespan: {mean_makespan:.6f} 秒")
+    print(f"标准差: {std_makespan:.6f} 秒")
+    print(f'The success rate: {success_num/total_test_num}')
