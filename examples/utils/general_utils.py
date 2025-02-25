@@ -598,10 +598,10 @@ def gorkov_correction(
     candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions_segments(
         num_particles, last_positions, current_positions, next_positions, levitator, fixed_index, num_solutions=200
     )
-    if sorted_solutions_max_gorkov[0] > max_gorkov:
-        print('Path smoothing: no candidate has better Gorkov than original!')
-
     if candidate_solutions is not None:
+        if sorted_solutions_max_gorkov[0] > max_gorkov:
+            print('Path smoothing: no candidate has better Gorkov than original!')
+
         # 依次取出 candidate_solutions，先检查是否Gorkov更好，再检查是否满足距离约束
         # 分别求出前后两个 segment 的最大位移，用于缩放时间
         for i in range(candidate_solutions.shape[0]):

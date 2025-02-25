@@ -63,8 +63,8 @@ if __name__ == "__main__":
         agents.append(agent)
 
     delta_time_2 = delta_time * math.sqrt(3) / 10.0
-    total_test_num = 10
-    success_num = 10
+    total_test_num = 200
+    success_num = 200
     debug = False
     times = []
     makespan = []

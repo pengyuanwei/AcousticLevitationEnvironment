@@ -19,7 +19,7 @@ if __name__ == '__main__':
     file_name_3 = 'new_new_smoothed_path'
 
     computation_time = []
-    for n in range(num_file):
+    for n in range(30, 100):
         print(f'\n-----------------------The paths {n}-----------------------')
 
         csv_file = os.path.join(global_model_dir_1, model_name, f'{file_name_0}_{str(n)}.csv')
