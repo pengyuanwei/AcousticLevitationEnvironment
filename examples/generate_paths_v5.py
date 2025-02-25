@@ -118,15 +118,6 @@ if __name__ == "__main__":
             rounded_diff_time = np.ceil(diff_time / step) * step
             # 计算累计时间并保存
             total_time = np.insert(np.cumsum(rounded_diff_time), 0, 0.0)
-            # (paths_length,) -> (num_particles, paths_length, 1)
-            total_time_broadcast = np.tile(total_time, (n_particles, 1))[:, :, np.newaxis]
-            # 合并时间和路径
-            trajectories = np.concatenate((total_time_broadcast, paths), axis=2)
-
-            # # 保存修改后的轨迹
-            # file_path = os.path.join(save_dir, f'{file_name}_{str(n)}.csv')
-            # save_path_v2(file_path, n_particles, trajectories)
-
             # (num_particles, paths_length, 3)
             corrected_paths = uniform_accelerated_interpolation(paths, total_time, last_unique_indexs)
             
