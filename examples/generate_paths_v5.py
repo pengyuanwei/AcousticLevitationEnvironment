@@ -21,15 +21,15 @@ Gorkov优化: 固定一些粒子进行修正
 '''
 
 if __name__ == "__main__":
-    n_particles = 8
-    global_model_dir_1 = './experiments/experiment_20'
-    global_model_dir_2 = './experiments/experiment_19'
-    global_model_dir_3 = './experiments/experiment_98'
-    global_model_dir_4 = './experiments/experiment_99'
+    n_particles = 10
+    global_model_dir_1 = './experiments/experiment_85'
+    global_model_dir_2 = './experiments/experiment_84'
+    global_model_dir_3 = './experiments/experiment_97'
+    global_model_dir_4 = './experiments/experiment_96'
     best_model_number_1 = 1000
     best_model_number_2 = 1000
 
-    save_dir = os.path.join(global_model_dir_1, '20_19_98_99/planner_v2')
+    save_dir = os.path.join(global_model_dir_1, '85_84_97_96/planner_v2')
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     file_name = 'path'
@@ -69,9 +69,9 @@ if __name__ == "__main__":
         agents.append(agent)
 
     delta_time_2 = delta_time * math.sqrt(3) / 10.0
-    success_num = 1000
+    success_num = 200
     debug = False
-    for n in range(30, 1000):  
+    for n in range(200):  
         print(f'-----------------------The {n} th set of paths-----------------------')  
         original_paths, last_unique_indexs, fixed_locations, failure = generate_paths_smoothing(global_env, agents[0], n_particles, max_timesteps, levitator)            
 
@@ -277,5 +277,25 @@ if __name__ == "__main__":
             # 保存修改后的轨迹
             file_path = os.path.join(save_dir, f'{file_name}_{str(n)}.csv')
             save_path_v2(file_path, n_particles, trajectories)
+
+        # 保存失败轨迹
+        else:
+            # 计算时间序列，要求每个片段的最大速度不超过最大速度（0.1m/s）
+            # (num_particles, paths_length, 3)
+            paths = np.transpose(original_paths, (1, 0, 2))
+            max_displacements = max_displacement_v2(paths)
+            diff_time = max_displacements / 0.1
+            # 向上取整为 32.0/10000 的整数倍
+            step = 32.0 / 10000
+            rounded_diff_time = np.ceil(diff_time / step) * step
+            # 计算累计时间并保存
+            total_time = np.insert(np.cumsum(rounded_diff_time), 0, 0.0)
+            # (paths_length,) -> (num_particles, paths_length, 1)
+            total_time_broadcast = np.tile(total_time, (n_particles, 1))[:, :, np.newaxis]
+            # 合并时间和路径
+            trajectories = np.concatenate((total_time_broadcast, paths), axis=2)
+            # 保存修改后的轨迹
+            file_path = os.path.join(save_dir, f'failure_path_{str(n)}.csv')
+            save_path_v2(file_path, n_particles, trajectories)            
 
     print(f'\nThe success number: {success_num}')

@@ -15,15 +15,15 @@ Change from generate_path_v5.py and evaluate_planner_v1.py
 '''
 
 if __name__ == "__main__":
-    n_particles = 8
-    global_model_dir_1 = './experiments/experiment_20'
-    global_model_dir_2 = './experiments/experiment_19'
-    global_model_dir_3 = './experiments/experiment_98'
-    global_model_dir_4 = './experiments/experiment_99'
+    n_particles = 10
+    global_model_dir_1 = './experiments/experiment_85'
+    global_model_dir_2 = './experiments/experiment_84'
+    global_model_dir_3 = './experiments/experiment_97'
+    global_model_dir_4 = './experiments/experiment_96'
     best_model_number_1 = 1000
     best_model_number_2 = 1000
 
-    save_dir = os.path.join(global_model_dir_1, '20_19_98_99/planner_v2')
+    save_dir = os.path.join(global_model_dir_1, '85_84_97_96/planner_v2')
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     file_name = 'path'
@@ -63,8 +63,8 @@ if __name__ == "__main__":
         agents.append(agent)
 
     delta_time_2 = delta_time * math.sqrt(3) / 10.0
-    total_test_num = 200
-    success_num = 200
+    total_test_num = 1000
+    success_num = 1000
     debug = False
     times = []
     makespan = []
