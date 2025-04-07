@@ -60,7 +60,12 @@ class RePlannerAPFGorkov(PlannerAPFGorkov):
 
         self.time_step = 0
         self.collision = np.zeros(self.n_particles)
-    
+
+        # 保存TWGS参数
+        positions = self.get_pos()
+        gorkov, self.ref_in, self.ref_out = self.levitator.calculate_gorkov_wgs_single_state_v2(positions)
+        print('Initial max Gorkov:', np.max(gorkov))
+        
         return self._get_obs(), self._info
 
 

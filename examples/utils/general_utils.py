@@ -94,52 +94,6 @@ def save_path_v3(file_path, n_particles, sum_t, sum_traj):
             csv_writer.writerow(rows)
 
     file_instance.close()
-
-
-def read_csv_file(file_path):
-    if not os.path.exists(file_path):
-        print(f"错误：文件路径无效 -> {file_path}")
-        return None
-    
-    data_list = []
-    with open(file_path, 'r', newline='', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            # 过滤掉空字符串
-            filtered_row = [item for item in row if item.strip()]
-            data_list.append(filtered_row)
-    return data_list
-
-
-def read_paths(csv_data):
-    """
-    读取等长路径并转换为浮点型数组，同时检测是否包含 NaN 值。
-
-    参数:
-        csv_data (list of list): 输入的 CSV 数据，每行应该包含 5 个值。
-    
-    返回:
-        tuple: 包含两部分 (numpy array of floats, bool indicating if NaN is present)
-    """
-    try:
-        # 转换为浮点数组，并过滤长度不是5的行
-        csv_data_float = [
-            [float(element) for element in row] 
-            for row in csv_data if len(row) == 5
-        ]
-        
-        # 转换为 numpy 数组
-        csv_array = np.array(csv_data_float)
-        
-        # 检查是否存在 NaN 值
-        if np.isnan(csv_array).any():
-            return np.array([]), True
-
-        return csv_array, False
-
-    except ValueError:
-        # 捕获不能转换为浮点数的异常
-        return np.array([]), True
     
 
 def process_paths(data_numpy, paths_length):

@@ -14,7 +14,6 @@ class Particle:
         self.vZ = 0.0
         self.velocity = np.array([self.vX, self.vY, self.vZ])
         self.last_velocity = np.array([0.0, 0.0, 0.0])
-        self.location_history = []
         self.target = 0
         self.inital_distance = 0.0
         self.last_timestep_dist = 0.0
@@ -33,7 +32,6 @@ class Particle:
         self.vZ = 0.0
         self.velocity = np.array([self.vX, self.vY, self.vZ])
         self.last_velocity = np.array([0.0, 0.0, 0.0])
-        self.location_history = []
         self.target = 0
         self.inital_distance = 0.0
         self.last_timestep_dist = 0.0
@@ -55,7 +53,6 @@ class Particle:
         self.vZ = 0.0
         self.velocity = np.array([self.vX, self.vY, self.vZ])
         self.last_velocity = np.array([0.0, 0.0, 0.0])
-        self.location_history = []
         self.target = 0
         self.inital_distance = 0.0
         self.last_timestep_dist = 0.0

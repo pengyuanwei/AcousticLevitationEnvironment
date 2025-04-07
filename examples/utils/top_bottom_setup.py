@@ -30,13 +30,14 @@ class top_bottom_setup():
 
         self.transducer = torch.cat((self.create_board(17, -0.24 / 2), self.create_board(17, 0.24 / 2)), axis = 0)
         self.num_transducer = self.transducer.shape[0]
+
         self.m = n_particles
         b = torch.ones(self.m, 1) + 1j * torch.zeros(self.m, 1)
         self.b = b.to(torch.complex64)
 
         # TWGS parameters
         self.T_in = torch.pi/32  #Hologram phase change threshold
-        self.T_out = torch.pi/32  #Point activations phase change threshold
+        self.T_out = 0.0  #Point activations phase change threshold
 
 
     def create_board(self, N, z):  
@@ -196,6 +197,67 @@ class top_bottom_setup():
         return trans_matrix
     
 
+    def modal_model(self, points):
+        """
+        基于简化振动模式模型计算换能器阵列对目标点的贡献矩阵。
+        假设换能器存在两个主要模态：
+        - 模态0：刚性（活塞）模态，采用原有piston模型的直接性函数；
+        - 模态1：第一阶弯曲模态，其辐射特性近似为带有 cos(theta) 修正的函数。
+        
+        参数：
+        points: Tensor, 目标点坐标，shape (m,3)
+        
+        返回：
+        trans_matrix: Tensor, 贡献矩阵，shape (n, m)
+        """
+        m = points.shape[0]
+        n = self.transducer.shape[0]
+        # 参数设置
+        k = 2 * math.pi / 0.00865    # 波数，假设波长为0.00865m
+        radius = 0.005               # 换能器半径，单位：m
+
+        # 提取换能器和目标点坐标，shape 分别为 (n,1) 和 (m,1)
+        transducers_x = torch.reshape(self.transducer[:, 0], (n, 1))
+        transducers_y = torch.reshape(self.transducer[:, 1], (n, 1))
+        transducers_z = torch.reshape(self.transducer[:, 2], (n, 1))
+        points_x = torch.reshape(points[:, 0], (m, 1))
+        points_y = torch.reshape(points[:, 1], (m, 1))
+        points_z = torch.reshape(points[:, 2], (m, 1))
+
+        # 计算换能器到各目标点的距离
+        distance = torch.sqrt((transducers_x.T - points_x) ** 2 +
+                            (transducers_y.T - points_y) ** 2 +
+                            (transducers_z.T - points_z) ** 2)
+        # 计算平面距离，用于确定角度
+        planar_distance = torch.sqrt((transducers_x.T - points_x) ** 2 +
+                                    (transducers_y.T - points_y) ** 2)
+        # 定义一个归一化参数，类似于bessel函数的自变量
+        bessel_arg = k * radius * torch.divide(planar_distance, distance)
+
+        # 模态0：活塞模态（采用原有的多项式近似）
+        directivity0 = (1/2 - bessel_arg**2 / 16 +
+                        bessel_arg**4 / 384 - bessel_arg**6 / 18432 +
+                        bessel_arg**8 / 1474560 - bessel_arg**10 / 176947200)
+
+        # 模态1：第一阶弯曲模态
+        # 此处计算目标点相对于换能器的发射角度theta
+        theta = torch.atan2(planar_distance, distance)
+        # 采用一个简化的多项式近似表达第一阶模态的直接性（同时引入 cos(theta) 表示辐射沿法向增强）
+        directivity1 = torch.cos(theta) * (1 - bessel_arg**2 / 8 + bessel_arg**4 / 192)
+
+        # 模态加权（权重可根据实际情况调整）
+        w0 = 0.7
+        w1 = 0.3
+        total_directivity = w0 * directivity0 + w1 * directivity1
+
+        # 计算相位项
+        phase = torch.exp(1j * k * distance)
+        # 结合幅值因子（这里依然使用原piston模型中的常数2*8.02），得到贡献矩阵
+        trans_matrix = 2 * 8.02 * torch.multiply(torch.divide(phase, distance), total_directivity)
+
+        return trans_matrix
+
+
     def surround_points(self, points):
         d = torch.zeros(1,3)
         d[0,0] = self.delta
@@ -235,8 +297,7 @@ class top_bottom_setup():
         key_points: numpy array, (path_lengths, num_particles, 3)
         '''
         algorithms = {
-            'Naive': self.calculate_gorkov_wgs_transposed,
-            'TWGS': self.calculate_gorkov_twgs
+            'Naive': self.calculate_gorkov_wgs_transposed
         }
         return algorithms[self.algorithm](key_points)
     
@@ -322,6 +383,31 @@ class top_bottom_setup():
         return gorkov.numpy()
     
 
+    def calculate_gorkov_wgs_single_state_v2(self, key_points):
+        '''
+        key_points: numpy array, (num_particles, 3)
+        output: 
+            - numpy array, (num_particles, 1)
+            - x
+            - y
+        '''
+        gorkov = torch.zeros((self.n_particles, 1))
+        locations = self.preprocess_coordinates_single_state(key_points)
+
+        A = self.piston_model(locations).to(torch.complex64)
+        x, y = self.wgs(A, self.b, self.iterations)
+        # Add signature to hologram phase
+        ph = torch.angle(x) + torch.cat((torch.zeros(int(self.num_transducer/2),1), math.pi*torch.ones(int(self.num_transducer/2),1)), axis=0)
+
+        Ax_sim, Ay_sim, Az_sim = self.surround_points(locations)
+        Ax_sim = Ax_sim.to(torch.complex64)
+        Ay_sim = Ay_sim.to(torch.complex64)
+        Az_sim = Az_sim.to(torch.complex64)
+        gorkov, _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
+            
+        return gorkov.numpy(), x, y
+    
+
     def calculate_gorkov_twgs(self, key_points):
         '''
         key_points: numpy array, (num_particles, path_lengths, 3)
@@ -349,6 +435,33 @@ class top_bottom_setup():
             gorkov[:, i:i+1], _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
 
         return gorkov.T.numpy()
+
+
+    def calculate_gorkov_twgs_input(self, key_points, ref_in, ref_out):
+        '''
+        输入ref_in和ref_out
+        key_points: numpy array, (num_particles, path_lengths, 3)
+        '''
+        gorkov = torch.zeros((self.n_particles, key_points.shape[1]))
+        locations = self.preprocess_coordinates(key_points)
+
+        for i in range(key_points.shape[1]):
+            A = self.piston_model(locations[:, i, :]).to(torch.complex64)
+            # temporal_wgs()可能存在一些问题：算出来的Gorkov值为正值。已检查wgs()没有问题。
+            x, y = self.temporal_wgs(A, self.b, self.iterations, ref_in, ref_out, self.T_in, self.T_out)
+            # Update the reference phase
+            ref_in = x
+            ref_out = y
+            # Add signature to hologram phase
+            ph = torch.angle(x) + torch.cat((torch.zeros(int(self.num_transducer/2),1), math.pi*torch.ones(int(self.num_transducer/2),1)), axis=0)
+
+            Ax2, Ay2, Az2 = self.surround_points(locations[:, i, :])
+            Ax_sim = Ax2.to(torch.complex64)
+            Ay_sim = Ay2.to(torch.complex64)
+            Az_sim = Az2.to(torch.complex64)
+            gorkov[:, i:i+1], _ , _ , _ , _  = self.forward_full_gorkov(ph, A, Ax_sim, Ay_sim, Az_sim)
+
+        return gorkov.T.numpy(), ref_in, ref_out
     
 
     def preprocess_coordinates(self, key_points):

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from examples.utils.general_utils import *
+from examples.utils.general_utils_v2 import *
 from examples.utils.path_smoothing_3 import *
 
 
@@ -11,15 +11,15 @@ from examples.utils.path_smoothing_3 import *
 if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
-    model_name = '20_19_98_99/planner_v2'
+    model_name = '20_19_98_99/planner_v3'
     num_file = 30
     file_name_0 = 'path'
     file_name_1 = 'smoothed_path'
-    file_name_2 = 'new_smoothed_path'
-    file_name_3 = 'new_new_smoothed_path'
+    file_name_2 = 'smoothed_path'
+    file_name_3 = 'smoothed_path'
 
     computation_time = []
-    for n in range(30, 100):
+    for n in range(5):
         print(f'\n-----------------------The paths {n}-----------------------')
 
         csv_file = os.path.join(global_model_dir_1, model_name, f'{file_name_0}_{str(n)}.csv')

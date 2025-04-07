@@ -4,7 +4,7 @@ import torch
 import os
 from scipy.spatial.distance import cdist
 
-from examples.utils.general_utils import *
+from examples.utils.general_utils_v2 import *
 import examples.utils.phase_retrieval as phase_retrieval
 
 
@@ -731,13 +731,21 @@ def calculate_max_gorkov(gorkov):
     return max_index, max_gorkov
 
 
-def read_csv_file(file_path):
-    if not os.path.exists(file_path):
-        return None
-    
-    data_list = []
-    with open(file_path, newline='', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            data_list.append(row)
-    return data_list
+def calculate_flags_max_gorkov(gorkov, keypoint_flags):
+    '''
+    找出每个时刻被标记的Gorkov中的最大值
+    Input:
+         - gorkov: (paths_lengths, num_particle)
+         - keypoint_flags: (paths_lengths, num_particle), 0或1, keypoints标记
+    Output:
+         - max_gorkov_idx: 具有最大Gorkov的时刻的索引
+         - max_gorkov: 每个时刻的最大Gorkov
+    '''
+    # 将 keypoint_flags 转换为布尔型掩码
+    mask = keypoint_flags == 1
+    # 利用 np.where 将 mask 为 False 的位置赋值为 -∞，
+    # 这样在计算最大值时，这些位置不会对结果产生影响
+    masked_gorkov = np.where(mask, gorkov, -np.inf)
+    max_gorkov = np.max(masked_gorkov, axis=1)
+    max_gorkov_idx = np.argmax(max_gorkov)
+    return max_gorkov_idx, max_gorkov

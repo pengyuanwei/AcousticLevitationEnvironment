@@ -15,9 +15,9 @@ from examples.utils.optimizer_utils import *
 if __name__ == '__main__':
     n_particles = 8
     global_model_dir_1 = './experiments/experiment_20'
-    model_name = '20_19_98_99'
-    num_file = 30
-    file_name = 'optimised_N_data'
+    model_name = '20_19_98_99/planner_v11'
+    num_file = 200
+    file_name = 'optimised_path'
     levitator = top_bottom_setup(n_particles, algorithm='Naive', iterations=1)
 
     computation_time = []
@@ -27,7 +27,7 @@ if __name__ == '__main__':
         start_time = time.time()  
 
         # csv_data是list，其中的元素是list，每个子list保存了每一行的数据
-        csv_file = os.path.join(global_model_dir_1, model_name, f'path{str(n)}.csv')
+        csv_file = os.path.join(global_model_dir_1, model_name, f'path_{str(n)}.csv')
         csv_data = read_csv_file(csv_file)
         if csv_data is None:
             print(f"Skipping file due to read failure: {csv_file}")
@@ -58,7 +58,7 @@ if __name__ == '__main__':
             print("Worst gorkov idx:", max_gorkov_idx)
             print("Worst gorkov value:", max_gorkov[max_gorkov_idx])
             
-            candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions(
+            candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions_whole_paths(
                 n_particles, split_data, max_gorkov_idx, levitator
             )
 
@@ -108,7 +108,7 @@ if __name__ == '__main__':
                 gorkov = levitator.calculate_gorkov(split_data[:, :, 2:])
                 max_gorkov = np.max(gorkov, axis=1)
 
-                candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions(
+                candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions_whole_paths(
                     n_particles, split_data, m, levitator
                 )
 
@@ -165,7 +165,7 @@ if __name__ == '__main__':
 
         # 保存修改后的轨迹
         file_path = os.path.join(global_model_dir_1, model_name, f'{file_name}_{str(n)}.csv')
-        save_path_v2(file_path, n_particles, split_data)
+        save_path_v2(file_path, n_particles, split_data[:, :, 1:])
 
     computation_time = np.array(computation_time)
     time_mean = np.mean(computation_time)

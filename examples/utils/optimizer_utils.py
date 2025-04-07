@@ -2,9 +2,7 @@ import numpy as np
 from typing import Type
 from examples.utils.acoustic_utils import *
 
-
 # 轨迹优化器
-
 
 def max_displacement(segment, num=2):
     # segment 是 (num+1, num_particle, 3) 的形状
@@ -93,29 +91,6 @@ def safety_area(n_particles, coords):
     return collision
 
 
-def generate_solutions_whole_paths(n_particles, split_data, max_gorkov_idx, levitator):
-    # 对最弱key points生成100个潜在solutions，并排序
-    candidate_solutions = np.transpose(
-        create_constrained_points_1(
-            n_particles, 
-            split_data[:, max_gorkov_idx, 2:], 
-            split_data[:, max_gorkov_idx-1, 2:], 
-            split_data[:, max_gorkov_idx+1, 2:]
-        ), 
-        (1, 0, 2)
-    )
-
-    # 计算 candidate_solutions 的 Gorkov
-    solutions_gorkov = levitator.calculate_gorkov(candidate_solutions)
-    # 找出每个 candidate_solutions 的最大 Gorkov
-    solutions_max_gorkov = np.max(solutions_gorkov, axis=1)
-    # 根据 Gorkov 对 candidate_solutions 从小到大排序
-    sorted_indices = np.argsort(solutions_max_gorkov)
-    sorted_solutions_max_gorkov = solutions_max_gorkov[sorted_indices]
-
-    return candidate_solutions, sorted_indices, sorted_solutions_max_gorkov
-
-
 def generate_solutions_segments(
         n_particles: int, 
         last_positions: np.array, 
@@ -192,39 +167,6 @@ def generate_solutions_single_frame(
     return candidate_solutions, sorted_indices, sorted_solutions_max_gorkov
 
 
-def calculate_displacements(segment):
-    '''
-    输入：
-        segment: 形状 (num_particle, n_keypoints, 3)
-    输出：
-        displacements: 形状 (num_particle, n_keypoints - 1)
-    '''
-    # 计算连续时间段的坐标差异
-    displacement_diff = segment[:, 1:, :] - segment[:, :-1, :]  # 形状 (num_particle, lengths - 1, 3)
-    
-    # 计算欧几里得距离（位移）
-    displacements = np.linalg.norm(displacement_diff, axis=2)
-
-    # 输出每个时间段的所有位移
-    return displacements
-
-
-def calculate_velocities(dx_set, dt_set):
-    '''
-    输入：
-        dx_set: (n_keypoints - 1, n_particles)
-        dt_set: (n_keypoints - 1,)
-    '''
-    # 确保 t_set 的长度与 dx_set 对应    
-    assert dt_set.shape[0] == dx_set.shape[0]
-
-    # 使用广播直接计算平均速度
-    # dt_set[:] 的形状是 (n_segments,)，广播到 (n_segments, n_particles)
-    velocities_set = dx_set / dt_set[:, None]  
-
-    return velocities_set
-
-
 def calculate_accelerations(v_mean, t_set):
     # v_mean 的形状 (n_segments, n_particles)
     # t_set  的形状 (n_keypoints, ) 应该有 n_segments+1 个 keypoints 对应 n_segments 个时间间隔
@@ -243,45 +185,3 @@ def calculate_accelerations(v_mean, t_set):
 
     # 输出所有加速度
     return accelerations_set
-
-
-def calculate_kinematic_quantities(segment, dt_set):
-    '''
-    输入：
-        segment: N个粒子的等长轨迹 (N, lengths, 3)
-        dt_set: keypoints 与前一个 keypoint 的时间步长 (lengths, )
-    输出：
-        t: 时间数组
-        velocities: (N, len(t)) 每个粒子随时间的速度
-        accelerations: (N, len(t)) 每个粒子随时间的加速度
-        trajectories: (N, len(t), 3) 每个粒子的轨迹
-    '''
-    # 累积时间步长以获取时间数组
-    t = np.cumsum(dt_set)
-
-    # 计算轨迹
-    trajectories = segment  # 轨迹已经由输入提供，直接赋值
-
-    # 计算速度
-    # 使用中央差分法计算速度：v[i] = (x[i+1] - x[i-1]) / (2 * dt)
-    velocities = np.zeros((segment.shape[0], segment.shape[1], 3))
-    for i in range(segment.shape[0]):
-        for j in range(1, segment.shape[1] - 1):
-            dt = dt_set[j] + dt_set[j - 1]
-            velocities[i, j] = (segment[i, j + 1] - segment[i, j - 1]) / dt
-        # 处理边界情况
-        velocities[i, 0] = (segment[i, 1] - segment[i, 0]) / dt_set[0]
-        velocities[i, -1] = (segment[i, -1] - segment[i, -2]) / dt_set[-1]
-
-    # 计算加速度
-    # 使用中央差分法计算加速度：a[i] = (v[i+1] - v[i-1]) / (2 * dt)
-    accelerations = np.zeros((segment.shape[0], segment.shape[1], 3))
-    for i in range(segment.shape[0]):
-        for j in range(1, segment.shape[1] - 1):
-            dt = dt_set[j] + dt_set[j - 1]
-            accelerations[i, j] = (velocities[i, j + 1] - velocities[i, j - 1]) / dt
-        # 处理边界情况
-        accelerations[i, 0] = (velocities[i, 1] - velocities[i, 0]) / dt_set[0]
-        accelerations[i, -1] = (velocities[i, -1] - velocities[i, -2]) / dt_set[-1]
-
-    return t, velocities, accelerations, trajectories

@@ -7,7 +7,9 @@ from typing import Optional, Tuple, Any, List, Dict, Type
 
 from acousticlevitationenvironment.particles import particle_slim, target_slim
 from acousticlevitationenvironment.utils import MultiAgentActionSpace, MultiAgentObservationSpace, create_points, optimal_pairing, check_and_correct_positions_fixed
-from examples.utils.optimizer_utils import *
+from examples.utils.optimizer_utils_v2 import *
+from examples.utils.path_smoothing_2 import *
+from examples.utils.acoustic_utils_v2 import *
 
 
 class PlannerAPFGorkov(gym.Env):
@@ -37,6 +39,7 @@ class PlannerAPFGorkov(gym.Env):
         self.max_timesteps = max_timesteps
         self.training_stage = training_stage
         self.levitator = levitator
+        self.gorkov = []
 
         self.play_field_corners: Tuple[float, float, float, float, float, float] = (-0.06, 0.06, -0.06, 0.06, -0.06+0.12, 0.06+0.12)
 
@@ -81,6 +84,11 @@ class PlannerAPFGorkov(gym.Env):
 
         return observation
     
+    
+    def input_start_end_points(self, start_points, target_points):
+        self.start_positions = start_points
+        self.target_positions = target_points
+
 
     def reset(self, seed=None, options=None):    
         # We need the following line to seed self.np_random
@@ -89,13 +97,7 @@ class PlannerAPFGorkov(gym.Env):
         self.particles: List[particle_slim] = []
         self.targets: List[target_slim] = []
 
-        start_positions = create_points(self.n_particles)
-        target_positions = create_points(self.n_particles)
-
-        # 计算最优配对
-        pairs = optimal_pairing(start_positions, target_positions)
-
-        self.particles_instancing(start_positions, target_positions, pairs)
+        self.particles_instancing(self.start_positions, self.target_positions)
             
         for i, particle in enumerate(self.particles):
             particle.inital_distance = math.sqrt((particle.x - self.targets[i].x)**2 
@@ -106,16 +108,19 @@ class PlannerAPFGorkov(gym.Env):
         self.time_step = 0
         self.collision = np.zeros(self.n_particles)
 
+        # 保存TWGS参数
+        positions = self.get_pos()
+        gorkov, self.ref_in, self.ref_out = self.levitator.calculate_gorkov_wgs_single_state_v2(positions)
+        print('Initial max Gorkov:', np.max(gorkov))
+
         return self._get_obs(), self._info
 
 
-    def particles_instancing(self, start_positions, target_positions, pairs):
+    def particles_instancing(self, start_positions, target_positions):
         for i in range(self.n_particles):
             self.particles.append(particle_slim(start_positions[i][0], start_positions[i][1], start_positions[i][2]))
-            index = pairs[i][1]
-            self.targets.append(target_slim(target_positions[index][0], target_positions[index][1], target_positions[index][2]))
-            #print(target_positions[index])
-    
+            self.targets.append(target_slim(target_positions[i][0], target_positions[i][1], target_positions[i][2]))
+
 
     def step(self, action):
         self.collision = np.zeros(self.n_particles)
@@ -123,6 +128,7 @@ class PlannerAPFGorkov(gym.Env):
         self.time_step += 1
 
         for i, particle in enumerate(self.particles):
+            # last_velocity, last_position, vX, vY, vZ, velocity, x, y, z
             particle.last_velocity = np.array([particle.vX, particle.vY, particle.vZ])
             particle.last_position = [particle.x, particle.y, particle.z]
 
@@ -165,6 +171,15 @@ class PlannerAPFGorkov(gym.Env):
         self.gorkov_correction(reach_index)
         self.update_dist()
 
+        # 更新TWGS的 ref_in 和 ref_out
+        positions = self.get_pos()
+        last_positions = self.get_last_pos()
+        positions = self.get_pos()
+        _, _, _, paths, _ = uniform_velocity_interpolation_v2(
+            start=last_positions, end=positions, total_time=self.delta_time, dt=0.0032, velocities=0.0
+        )
+        _, self.ref_in, self.ref_out = self.levitator.calculate_gorkov_twgs_input(paths, self.ref_in, self.ref_out)
+        
         terminated = self._is_it_terminated()
         truncated = self._is_it_truncated()
 
@@ -192,20 +207,34 @@ class PlannerAPFGorkov(gym.Env):
                 particle.x = new_positions[i][0]
                 particle.y = new_positions[i][1]
                 particle.z = new_positions[i][2]
+            self.update_velocities()
         else:
             print('APF: 待 Gorkov optimization 尝试再次修正。')
 
 
     def gorkov_correction(self, reach_index):
+        '''
+        对第一个keypoint的修正
+        '''
         positions = self.get_pos()
         last_positions = self.get_last_pos()
-        gorkov = self.levitator.calculate_gorkov_single_state(positions)
-        max_gorkov = np.max(gorkov, axis=0)
-        candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = generate_solutions_single_frame(
-            self.n_particles, last_positions, positions, self.levitator, reach_index, num_solutions=200
+        # 在两个keypoints之间进行插值
+        # paths: (num_particles, path_lengths, 3)
+        _, _, _, paths, _ = uniform_velocity_interpolation_v2(
+            start=last_positions, end=positions, total_time=self.delta_time, dt=0.0032, velocities=0.0
+        )
+        # 计算插值后的所有轨迹的所有坐标中的最大gorkov
+        gorkov, self.ref_in, self.ref_out = self.levitator.calculate_gorkov_twgs_input(paths, self.ref_in, self.ref_out)
+        max_gorkov = np.max(gorkov)
+        displacements = self.get_dis()
+        last_displacements = self.get_last_dis()
+        candidate_solutions, sorted_indices, sorted_solutions_max_gorkov = self.generate_solutions_single_frame(
+            last_positions, positions, last_displacements, displacements, reach_index, num_solutions=100
         )
 
         if candidate_solutions is not None:
+            print('Max Gorkov of original locations:', max_gorkov)
+            print('Max Gorkov of the first candidate solution:', sorted_solutions_max_gorkov[0])
             # 依次取出 candidate_solutions，先检查是否Gorkov更好，再检查是否满足距离约束
             # 分别求出前后两个 segment 的最大位移，用于缩放时间
             re_plan_segment = np.concatenate([last_positions[np.newaxis, :, :], positions[np.newaxis, :, :]])
@@ -235,6 +264,7 @@ class PlannerAPFGorkov(gym.Env):
                         particle.x = candidate_solutions[j, sorted_indices[i], 0]
                         particle.y = candidate_solutions[j, sorted_indices[i], 1]
                         particle.z = candidate_solutions[j, sorted_indices[i], 2]
+                    self.update_velocities()
                     break
         else:
             print("Gorkov optimization: 未能生成 candidate solutions, Gorkov 优化失败！")
@@ -244,7 +274,17 @@ class PlannerAPFGorkov(gym.Env):
         for i, particle in enumerate(self.particles):
             dist = math.sqrt((particle.x - self.targets[i].x)**2 + (particle.y - self.targets[i].y)**2 + (particle.z - self.targets[i].z)**2)
             particle.last_timestep_dist = dist
-
+    
+    def update_velocities(self):
+        for particle in self.particles:
+            delta_x = particle.x - particle.last_position[0]
+            delta_y = particle.y - particle.last_position[1]
+            delta_z = particle.z - particle.last_position[2]
+            particle.vX = delta_x/self.delta_time
+            particle.vY = delta_y/self.delta_time
+            particle.vZ = delta_z/self.delta_time
+            particle.velocity = np.array([particle.vX, particle.vY, particle.vZ])        
+    
 
     def _is_it_terminated(self):
         return np.all(self.collision == 0.0) and all(particle.last_timestep_dist <= self.max_velocity*self.delta_time for particle in self.particles)
@@ -265,6 +305,18 @@ class PlannerAPFGorkov(gym.Env):
         for i, particle in enumerate(self.particles):
             positions[i] = particle.last_position
         return positions
+
+    def get_dis(self):
+        displacements = np.zeros((self.n_particles, 3))
+        for i, particle in enumerate(self.particles):
+            displacements[i] = [particle.vX * self.delta_time, particle.vY * self.delta_time, particle.vZ * self.delta_time]
+        return displacements
+    
+    def get_last_dis(self):
+        displacements = np.zeros((self.n_particles, 3))
+        for i, particle in enumerate(self.particles):
+            displacements[i] = particle.last_velocity * self.delta_time
+        return displacements
     
     def check_status(self, debug=False):
         reach_index = np.zeros((self.n_particles, 1))
@@ -273,3 +325,59 @@ class PlannerAPFGorkov(gym.Env):
         if debug:
             print(f"Path finding: 第{self.time_step}时间步，剩余未到达终点的粒子数: {np.sum(reach_index == 0)}")
         return reach_index
+
+
+    def generate_solutions_single_frame(
+            self,
+            last_positions: np.array, 
+            positions: np.array, 
+            last_displacements: np.array, 
+            displacements: np.array, 
+            reach_index: np.array,
+            num_solutions: int=10
+        ):
+        '''
+        为某个已知时刻生成solutions
+        last_positions: (num_particles, 3)
+        positions: (num_particles, 3)
+        last_displacements: (num_particles, 3)
+        displacements: (num_particles, 3)
+        '''
+        # 对最弱key points生成100个潜在solutions，并排序
+        # if self.time_step > 1:
+        #     candidate_solutions = create_constrained_points_single_frame(
+        #         self.n_particles, 
+        #         last_positions,
+        #         positions,
+        #         last_displacements, 
+        #         displacements, 
+        #         reach_index,
+        #         num_solutions
+        #     )
+        # else:
+        candidate_solutions = create_constrained_points_single_frame_v2(
+            self.n_particles, 
+            last_positions,
+            positions,
+            reach_index,
+            num_solutions
+        )
+        if candidate_solutions is None:
+            return None, None, None
+
+        # 计算 candidate_solutions 的 Gorkov
+        solutions_max_gorkov = np.zeros((candidate_solutions.shape[1], ))
+        for i in range(candidate_solutions.shape[1]):
+            _, _, _, paths, _ = uniform_velocity_interpolation_v2(
+                start=last_positions, end=candidate_solutions[:, i, :], total_time=self.delta_time, dt=0.0032, velocities=0.0
+            )
+            solution_gorkov, _, _ = self.levitator.calculate_gorkov_twgs_input(paths, self.ref_in, self.ref_out)
+            # 找出每个 candidate_solutions 的最大 Gorkov
+            solutions_max_gorkov[i] = np.max(solution_gorkov)
+            if i % 10 == 0:
+                print(i)
+        # 根据 max Gorkov 从小到大对 candidate_solutions 排序
+        sorted_indices = np.argsort(solutions_max_gorkov)
+        sorted_solutions_max_gorkov = solutions_max_gorkov[sorted_indices]
+
+        return candidate_solutions, sorted_indices, sorted_solutions_max_gorkov

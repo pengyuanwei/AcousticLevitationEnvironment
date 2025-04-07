@@ -129,3 +129,58 @@ def check_and_correct_positions_fixed(
 
     print("APF: 达到最大迭代次数，约束未完全满足。")
     return positions, False
+
+
+def check_and_correct_positions_one_step(
+        positions: np.array, 
+        reach_index: np.array,
+        step_size: float=0.001, 
+        max_iterations: int=100,
+        bounds: tuple=((-0.06, 0.06), (-0.06, 0.06), (-0.06 + 0.12, 0.06 + 0.12))
+    ) -> Tuple[np.ndarray, bool]:
+    """
+    检查无人机之间的距离是否满足约束，并根据三维斥力场修正坐标。归一化force并只计算一次
+
+    Args:
+        positions (np.ndarray): 无人机的位置数组，形状为 (n, 3)。
+        step_size (float): 修正坐标的步长。
+        max_iterations (int): 最大迭代次数。
+        bounds (tuple): 三维空间的边界，格式为 ((x_min, x_max), (y_min, y_max), (z_min, z_max))。
+
+    Returns:
+        np.ndarray: 修正后的无人机位置数组。
+        bool: 是否所有无人机均满足距离约束。
+    """
+    num_drones = positions.shape[0]
+    forces = np.zeros_like(positions)  # 初始化所有无人机的斥力
+
+    # 计算斥力
+    for i in range(num_drones):
+        for j in range(i + 1, num_drones):  # 避免重复计算
+            diff = positions[i] - positions[j]
+            distance = np.linalg.norm(diff)
+            distance_xy = np.linalg.norm(diff[:2])
+            distance_z = abs(diff[2])
+
+            repulsion_force = compute_repulsion_force(diff, distance, distance_xy, distance_z)
+            forces[i] += repulsion_force
+            forces[j] -= repulsion_force  # 反作用力
+
+    # 归一化只保留方向
+    # 计算每一行的 L2 范数，保持 (n,1) 形状以便广播
+    row_norms = np.linalg.norm(forces, axis=1, keepdims=True)
+    # 避免除以零的情况（如果行范数为0，则保持为0）
+    forces_normalized = np.where(row_norms == 0, 0, forces / row_norms)
+    # 根据合成力修正位置
+    positions += step_size * forces_normalized
+
+    # 投影到边界内
+    if bounds is not None:
+        positions = np.clip(positions, [b[0] for b in bounds], [b[1] for b in bounds])
+
+    # 检查是否满足约束
+    if check_distances(positions):
+        return positions, True
+
+    print("APF: 达到最大迭代次数，约束未完全满足。")
+    return positions, False

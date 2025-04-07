@@ -81,7 +81,9 @@ def visualize_all_particles(t, accelerations, velocities, trajectories, jerks=No
     同时可视化所有粒子的加速度、速度和轨迹
     '''
     num_particles = accelerations.shape[0]
-    colors = plt.cm.get_cmap('tab10', num_particles)  # 使用不同颜色绘制
+    # 使用不同颜色绘制
+    colors = plt.colormaps.get_cmap('tab10')
+    colors = [colors(i / (num_particles - 1)) for i in range(num_particles)]
 
     # 加速度和速度
     if jerks is not None:
@@ -89,10 +91,10 @@ def visualize_all_particles(t, accelerations, velocities, trajectories, jerks=No
     else:
         fig, axs = plt.subplots(2, 1, figsize=(12, 10))
     for i in range(num_particles):
-        axs[0].plot(t, velocities[i], label=f'Particle {i}', color=colors(i))
-        axs[1].plot(t, accelerations[i], label=f'Particle {i}', color=colors(i))
+        axs[0].plot(t, velocities[i], label=f'Particle {i}', color=colors[i])
+        axs[1].plot(t, accelerations[i], label=f'Particle {i}', color=colors[i])
         if jerks is not None:
-            axs[2].plot(t, jerks[i], label=f'Particle {i}', color=colors(i))
+            axs[2].plot(t, jerks[i], label=f'Particle {i}', color=colors[i])
 
     axs[0].set_title('Velocity vs Time')
     axs[0].set_ylabel('Velocity')
@@ -116,7 +118,7 @@ def visualize_all_particles(t, accelerations, velocities, trajectories, jerks=No
         ax = fig.add_subplot(111, projection='3d')
         for i in range(num_particles):
             traj = trajectories[i]
-            ax.plot(traj[:, 0], traj[:, 1], traj[:, 2], label=f'Particle {i}', color=colors(i))
+            ax.plot(traj[:, 0], traj[:, 1], traj[:, 2], label=f'Particle {i}', color=colors[i])
             ax.scatter(traj[0, 0], traj[0, 1], traj[0, 2], color=colors(i), marker='o')  # 起点
             ax.scatter(traj[-1, 0], traj[-1, 1], traj[-1, 2], color=colors(i), marker='x')  # 终点
 
@@ -164,7 +166,11 @@ def smooth_trajectories_arbitrary_initial_velocity(start: np.array, end: np.arra
 
     # 计算路径长度和方向
     L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
-    direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
+    # 初始化方向向量，默认所有为零向量
+    direction = np.zeros_like(end)
+    # 对于路径长度不为0的粒子，计算单位方向向量
+    nonzero = L > 0
+    direction[nonzero] = (end - start)[nonzero] / L[nonzero, np.newaxis]
 
     # 初速度
     v_0 = velocities
@@ -241,7 +247,11 @@ def s_curve_smoothing_with_zero_end_velocity_simple(start: np.array, end: np.arr
 
     # 计算路径长度和方向
     L = np.linalg.norm(end - start, axis=1)  # (N,) 每个粒子的总路径长度
-    direction = (end - start) / L[:, np.newaxis]  # (N, 3) 单位方向向量
+    # 初始化方向向量，默认所有为零向量
+    direction = np.zeros_like(end)
+    # 对于路径长度不为0的粒子，计算单位方向向量
+    nonzero = L > 0
+    direction[nonzero] = (end - start)[nonzero] / L[nonzero, np.newaxis]
 
     # 初速度
     v_0 = velocities
@@ -548,7 +558,7 @@ def uniform_velocity_interpolation_v2(
         accelerations[:, i] = a
         velocities[:, i] = v
 
-    # 计算三维轨迹
+    # 计算三维轨迹, 不包含后端点
     trajectories = segments[:, :-1, np.newaxis] * direction[:, np.newaxis, :] + start[:, np.newaxis, :]
 
     return t[:-1], accelerations[:, :-1], velocities[:, :-1], trajectories, v_1
