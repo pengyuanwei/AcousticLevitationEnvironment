@@ -230,6 +230,9 @@ def visualize_all_particles_v4(t_velocities, velocities, t_accelerations, accele
 
 def calculate_v_a(paths: np.array, delta_time: float=0.0032, debug: bool=False):
     '''
+    轨迹的速度与加速度分析。
+    速度：source points v=0，每一段的平均速度，target points v=0
+    加速度：source points a=0，每个平均速度之间的加速度（包含从v_{T-1}到v_T）
     输入：
         paths: (N, paths_length, 3)
         delta_time: 每段位移的时间变化
