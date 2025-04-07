@@ -1,6 +1,6 @@
 import numpy as np
+from scipy.interpolate import interp1d
 from examples.utils.path_smoothing_2 import *
-
 
 
 def kinodynamics_analysis(
@@ -304,3 +304,142 @@ def visualize_paths(num_particles, trajectories):
     ax.set_zlabel('Z')
     ax.legend()
     plt.show()
+
+
+def interpolate_trajectories(trajectories, delta_time):
+    """
+    对所有轨迹进行线性插值，使用给定的delta_time来生成更多的时间点。
+    
+    参数:
+    - trajectories: 形状为(N, M, 4)的numpy数组，包含N个agent的M个关键点及其时间和位置。
+    - delta_time: 目标的时间间隔，用于插值。
+    
+    返回:
+    - interpolated_trajectories: 插值后的轨迹，形状为(N, new_M, 4)，其中new_M是插值后的关键点数量。
+    """
+    N, M, _ = trajectories.shape
+    
+    # 结果的时间间隔和新的时间点数量
+    interpolated_trajectories = []
+    
+    for i in range(N):
+        # 获取当前agent的轨迹
+        agent_trajectory = trajectories[i]  # shape (M, 4)
+        
+        # 时间 t 和位置 (x, y, z)
+        times = agent_trajectory[:, 0]
+        positions = agent_trajectory[:, 1:]
+        
+        # 计算原始时间点之间的时间差
+        original_deltas = np.diff(times)  # size (M-1,)
+        
+        # 确保每个时间差是 delta_time 的整数倍
+        assert np.all(np.isclose((original_deltas+1e-9) % delta_time, 0.0)), "时间差必须是delta_time的整数倍"
+        
+        # 根据原始时间点的时间差，确定新的时间点
+        new_times = []
+        for j in range(M-1):
+            # 当前时间点和下一个时间点之间的时间差
+            start_time = times[j]
+            end_time = times[j+1]
+            num_new_points = int((end_time - start_time) / delta_time)  # 插值的点数
+            new_times.extend(np.arange(start_time, end_time, delta_time))
+        
+        new_times.append(times[-1])  # 确保最后一个时间点被添加
+        
+        # 对每个坐标进行插值
+        new_positions = np.zeros((len(new_times), 3))  # shape (new_M, 3)
+        
+        for j in range(3):
+            # 使用线性插值对每个坐标进行插值
+            interpolator = interp1d(times, positions[:, j], kind='linear', fill_value='extrapolate')
+            new_positions[:, j] = interpolator(new_times)
+        
+        # 将插值后的时间和位置合并
+        new_trajectory = np.column_stack((new_times, new_positions))  # shape (new_M, 4)
+        interpolated_trajectories.append(new_trajectory)
+    
+    # 转换为numpy数组
+    interpolated_trajectories = np.array(interpolated_trajectories)
+    
+    return interpolated_trajectories
+
+
+def compute_angle(v1, v2):
+    """计算两个向量之间的夹角，返回弧度"""
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+    
+    if norm_v1 == 0 or norm_v2 == 0:
+        return 0  # 或者 return np.nan，如果你想之后过滤掉这类点
+
+    dot_product = np.dot(v1, v2)
+    cos_theta = dot_product / (norm_v1 * norm_v2)
+    
+    # 保证cos值在合法范围内，防止浮点误差
+    cos_theta = np.clip(cos_theta, -1.0, 1.0)
+    return np.arccos(cos_theta)
+
+
+# def find_turning_points(trajectories, angle_threshold=np.pi/32):
+#     """
+#     查找转折点
+#     trajectories: 形状为(N, M, 4)的轨迹数据，包含时间和坐标
+#     angle_threshold: 转折角度阈值（弧度）
+#     """
+#     N, M, _ = trajectories.shape
+#     turning_points = []
+
+#     # 遍历每个agent
+#     for i in range(N):
+#         agent_turning_points = []
+#         # 遍历该agent的所有关键点
+#         for j in range(1, M-1):
+#             # 获取相邻的方向向量
+#             v1 = trajectories[i, j] - trajectories[i, j-1]  # v1: P(j) 到 P(j-1)
+#             v2 = trajectories[i, j+1] - trajectories[i, j]  # v2: P(j+1) 到 P(j)
+            
+#             # 计算夹角
+#             angle = compute_angle(v1[1:], v2[1:])  # 忽略时间维度，只考虑空间坐标 (x, y, z)
+            
+#             # 判断是否为转折点
+#             if angle > angle_threshold:
+#                 agent_turning_points.append(j)
+#                 print(f"Particle {i}, point {j}:", v1[1:], v2[1:])
+        
+#         turning_points.append(agent_turning_points)
+    
+#     return turning_points
+
+
+def find_turning_points(trajectories, angle_threshold=np.pi/4):
+    """
+    返回所有转折点的索引元组 (agent_id, point_id)
+    """
+    N, M, _ = trajectories.shape
+    turning_points = []
+
+    for i in range(N):
+        for j in range(1, M - 1):
+            v1 = trajectories[i, j] - trajectories[i, j - 1]
+            v2 = trajectories[i, j + 1] - trajectories[i, j]
+            
+            # 只计算空间部分
+            v1_xyz = v1[1:]
+            v2_xyz = v2[1:]
+
+            norm_v1 = np.linalg.norm(v1_xyz)
+            norm_v2 = np.linalg.norm(v2_xyz)
+
+            if norm_v1 == 0 or norm_v2 == 0:
+                continue  # 跳过静止点
+
+            dot_product = np.dot(v1_xyz, v2_xyz)
+            cos_theta = dot_product / (norm_v1 * norm_v2)
+            cos_theta = np.clip(cos_theta, -1.0, 1.0)
+            angle = np.arccos(cos_theta)
+
+            if angle > angle_threshold:
+                turning_points.append((i, j))
+
+    return turning_points

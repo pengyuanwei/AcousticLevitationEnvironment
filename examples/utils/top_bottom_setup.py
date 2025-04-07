@@ -411,6 +411,7 @@ class top_bottom_setup():
     def calculate_gorkov_twgs(self, key_points):
         '''
         key_points: numpy array, (num_particles, path_lengths, 3)
+        gorkov.T.numpy(): (path_lengths, num_particles)
         '''
         gorkov = torch.zeros((self.n_particles, key_points.shape[1]))
         locations = self.preprocess_coordinates(key_points)
